@@ -1,18 +1,17 @@
 #include "hw1.h"
 #include <ctype.h>
 #include <cmath>
-#include <iostream>
 #include <float.h>
 #include <fstream>
+#include <iostream>
 #include <sstream>
-#include <utility>
-#include <unordered_map>
 #include <string>
+#include <unordered_map>
+#include <utility>
 
 using namespace std;
 
-// creates a new file which ends with .ppm from the input file name and puts in the header information
-
+// checks if a given string represents a float value or not
 bool checkFloat (string word) {
 	int decimalCount = 0;
 	if (word[0] == '-' || word[0] == '+') word = word.substr(1, word.size()-1);
@@ -31,6 +30,7 @@ bool checkInt (string word) {
 	return true;
 }
 
+// tokenize a line of text, used for parsing the input file
 vector<string> tokenizeLine(string line, char delim) {
 	stringstream ss(line);
 	vector<string> words;
@@ -77,6 +77,13 @@ void displayRay(RayType a) {
 		<< a.dx << "," << a.dy << "," << a.dz << endl;
 }
 
+// returns the magnitude of a vector
+float getMagnitude(VectorType v) {
+    float a2 = pow(v.dx, 2), b2 = pow(v.dy, 2),
+          c2 = pow(v.dz, 2), mag = 0;
+    mag = sqrt(a2 + b2 + c2);
+    return mag;
+}
 
 // returns a normalized VectorType
 VectorType getUnitVector(VectorType vector) {
@@ -87,7 +94,7 @@ VectorType getUnitVector(VectorType vector) {
 	return result;
 }
 
-// returns the negative of  a vector
+// returns the negative of a vector
 VectorType negativeOfVector(VectorType v) {
 	VectorType	res = {-v.dx, -v.dy, -v.dz};
 	return res;
@@ -103,6 +110,7 @@ VectorType getCrossProduct(VectorType a, VectorType b) {
 	return res;
 }
 
+// creates a ray given a point and vector
 RayType createRay(PointType p, VectorType a) {
 	VectorType dir = sum(p, negativeOfVector(a));
 	dir = getUnitVector(dir);
@@ -110,6 +118,7 @@ RayType createRay(PointType p, VectorType a) {
 	return res;
 }
 
+// creates all the rays that will be used to probe through 
 vector<vector<RayType>> getRays(Image im) {
 	int w = im.width, h = im.height;
 
@@ -143,9 +152,10 @@ vector<vector<RayType>> getRays(Image im) {
 	return res;
 }
 
+// to get intersection distance for each ray and sphere pair
 float getSphereIntersectionDistance(RayType	ray, SphereType sphere) {
 	float A = 1.0;
-	float B = 2.0 *(ray.dx*(ray.x-sphere.x) +  ray.dy*(ray.y-sphere.y)
+	float B = 2.0*(ray.dx*(ray.x-sphere.x) + ray.dy*(ray.y-sphere.y)
 			+ ray.dz*(ray.z-sphere.z));
 	float C = (ray.x-sphere.x)*(ray.x-sphere.x) 
 			+ (ray.y-sphere.y)*(ray.y-sphere.y)
@@ -169,10 +179,12 @@ float getSphereIntersectionDistance(RayType	ray, SphereType sphere) {
 	}
 }
 
+// returns the shade of a particular ray
 ColorType shadeRay(Image im, int objId) {
 	return im.spheres[objId].m.c;
 }
 
+// to trace the given ray
 ColorType traceRay(RayType ray, Image im){
 	int objId = -1;
 	float minDist = FLT_MAX;
@@ -184,15 +196,17 @@ ColorType traceRay(RayType ray, Image im){
 		else if (minDist > dist){
 			minDist = dist;
 			objId = i;
-			cout<<"Found Intersection"<<endl;
+			//cout<<"Itersection"<<endl;
 		}
 	}
 	// return background color if there is no intersection
 	return minDist != FLT_MAX ? shadeRay(im, objId) : im.backgroundColor;
 }
 
+// initialize the image plane, all the vectors such as U, V & W
 void initializeImagePlane(Image& im) {
     im.U = getCrossProduct(im.viewDirection, im.upDirection);
+	if (getMagnitude(im.U) == 0.0) throw 1; // if u is of zero notify user
     im.U = getUnitVector(im.U);
 	im.V = getCrossProduct(im.U, im.viewDirection);
 	im.V = getUnitVector(im.V);
@@ -201,6 +215,7 @@ void initializeImagePlane(Image& im) {
 	return;
 }
 
+// initialize the viewing window
 void initializeViewingWindow(Image& im) {
 	float width = 2*DOW*tan((im.hfov/2.0)*(PI/180.0));
 	float height = width / ((float)im.width/(float)im.height);
@@ -209,6 +224,7 @@ void initializeViewingWindow(Image& im) {
 
 	VectorType viewOrig = sum(im.eye, multiplyScalar(getUnitVector(im.viewDirection), DOW));
 
+	// defining the corners of the viewing window
 	vw.ul = sum(viewOrig, sum(multiplyScalar(im.U, -width/2.0), multiplyScalar(im.V, height/2.0))); 
 	vw.ur = sum(viewOrig, sum(multiplyScalar(im.U, width/2.0), multiplyScalar(im.V, height/2.0))); 
 	vw.ll = sum(viewOrig, sum(multiplyScalar(im.U, -width/2.0), multiplyScalar(im.V, -height/2.0))); 
@@ -218,7 +234,7 @@ void initializeViewingWindow(Image& im) {
 	return;
 }
 
-
+// creates a new file which ends with .ppm from the input file name and puts in the header information
 string createFileAndWriteHeader(string fileName, int width, int height) {
 
 	// parse the file name to create output file
@@ -236,12 +252,12 @@ string createFileAndWriteHeader(string fileName, int width, int height) {
 	return outputFile;
 }
 
+// draws the image into the ppm file
 void drawImage(string fileName, int width, int height, vector<vector<ColorType>>& image) {
 
 	ofstream file;
 	file.open(fileName, ios_base::app);
-	
-	// write pattern to file
+	// write image to file
 	for (int i = 0; i < height; i++) {
 	    for (int j = 0; j < width; j++) {
 			file <<(int)(255*image[i][j].red) << " "
@@ -253,6 +269,7 @@ void drawImage(string fileName, int width, int height, vector<vector<ColorType>>
 	return;
 }   
 
+// creates a vector which holds all the colors to be written the image
 vector<vector<ColorType>> initilialzieImage(Image im) {
 	vector<vector<ColorType>> image(im.height, vector<ColorType>(im.width, {0.0, 0.0, 0.0}));
 	return image;
@@ -260,6 +277,7 @@ vector<vector<ColorType>> initilialzieImage(Image im) {
 
 // parses the file and gets the image size
 Image readInput(string fileName) {
+
 	Image image;
 	MaterialType material;
   	ifstream infile; infile.open(fileName);
@@ -270,12 +288,13 @@ Image readInput(string fileName) {
 		{"updir", 8}
 	};
 
-	vector<bool> valid(9, false);
+	vector<bool> validArgs(9, false);
 	vector<string> tokens;
     while (!infile.eof()) {
     	getline(infile, LINE);
     	tokens = tokenizeLine(LINE, ' ');
     	if (!tokens.size()) continue;
+		// initialize inputs for the image through a switch case
     	switch (cases[tokens[0]]) {
     		case 0: {
 				if (tokens.size()!=4 || !checkFloat(tokens[1])
@@ -286,15 +305,16 @@ Image readInput(string fileName) {
 
 				if (red<0.0 || red>1.0 || green<0.0 || green>1.0
 				    || blue<0.0 || blue>1.0) throw -1;
-				valid[cases["bkgcolor"]] = true;
+
+				validArgs[cases["bkgcolor"]] = true;
 				ColorType color = {red, green, blue};
 				image.backgroundColor = color;
-				cout << "bkgcolor" << endl;
+				// cout << "bkgcolor" << endl;
 				break;
 			}
 
     		case 1: {
-
+                // TODO parse cylinder parameters
     		}
 
     		case 2: {
@@ -307,8 +327,8 @@ Image readInput(string fileName) {
 
 				PointType eye = {(float)x, (float)y, (float)z};
 				image.eye = eye;
-				valid[cases["eye"]] = true;
-				cout << "eye" << endl;
+				validArgs[cases["eye"]] = true;
+				// cout << "eye" << endl;
 				break;
     		}
 
@@ -316,8 +336,8 @@ Image readInput(string fileName) {
     			if (tokens.size()!=2 || !checkFloat(tokens[1])) throw -1;
 				float angle = stof(tokens[1]);
 				image.hfov = angle;
-				valid[cases["hfov"]] = true;
-				cout << "hfov" << endl;
+				validArgs[cases["hfov"]] = true;
+				// cout << "hfov" << endl;
 				break;
     		}
 
@@ -325,11 +345,11 @@ Image readInput(string fileName) {
     			if (tokens.size()!=3 || !checkInt(tokens[1])
     			    || !checkInt(tokens[2])) throw -1;
 				int width = stoi(tokens[1]), height = stoi(tokens[2]);
-				if (width<=0 || height<=0) throw NULL;
+				if (width<=0 || height<=0) throw -1;
 					
 				image.width	 = width; image.height = height;
-				valid[cases["imsize"]] = true;
-				cout << "imsize" << endl;
+				validArgs[cases["imsize"]] = true;
+				// cout << "imsize" << endl;
 				break;
     		}
 
@@ -337,15 +357,17 @@ Image readInput(string fileName) {
     			if (tokens.size()!=4 || !checkFloat(tokens[1])
     			    || !checkFloat(tokens[2]) 
     			    || !checkFloat(tokens[3])) throw -1;
+
 				float red = stof(tokens[1]), green = stof(tokens[2]),
 					blue = stof(tokens[3]);
 
 				if (red<0.0 || red>1.0 || green<0.0 || green>1.0
 				    || blue<0.0 || blue>1.0) throw -1;
-				valid[cases["mtlcolor"]] = true;
+
+				validArgs[cases["mtlcolor"]] = true;
 				ColorType mtlcolor = {(float)red, (float)green, (float)blue};
 				material = {mtlcolor};
-				cout << "mtlcolor" << endl;
+				// cout << "mtlcolor" << endl;
 				break;	
     		}
 
@@ -359,13 +381,13 @@ Image readInput(string fileName) {
 				
 				float radius = stof(tokens[4]);
 
-				if (radius<=0 || !valid[cases["mtlcolor"]]) throw -1;
-				valid[cases["sphere"]] = true;
+				if (radius<=0 || !validArgs[cases["mtlcolor"]]) throw -1;
+				validArgs[cases["sphere"]] = true;
 
 				SphereType sphere = {(float)x, (float)y, (float)z,
 				    (float)radius, material};
 				image.spheres.push_back(sphere);
-				cout << "sphere" << endl;
+				// cout << "sphere" << endl;
 				break;
     		}
 
@@ -376,11 +398,10 @@ Image readInput(string fileName) {
 				
 				float x = stof(tokens[1]), y = stof(tokens[2]),
 				    z = stof(tokens[3]);
-				    // convert to unit lenght ? 
 				VectorType viewdir = {(float)x, (float)y, (float)z};
 				image.viewDirection = viewdir;
-				valid[cases["viewdir"]] = true;
-				cout << "viewdir" << endl;
+				validArgs[cases["viewdir"]] = true;
+				// cout << "viewdir" << endl;
 				break;
     		}
 
@@ -388,23 +409,26 @@ Image readInput(string fileName) {
     			if (tokens.size()!=4 || !checkFloat(tokens[1])
     			    || !checkFloat(tokens[2])
     			    || !checkFloat(tokens[3])) throw -1;
+
 					float x = stof(tokens[1]), y = stof(tokens[2]),
 					    z = stof(tokens[3]);
 
 					VectorType up = {(float)x, (float)y, (float)z};
 					image.upDirection = up;
-					valid[cases["updir"]] = true;
-					cout << "updir" << endl;
+					validArgs[cases["updir"]] = true;
+					// cout << "updir" << endl;
 					break;	
     		}
 
     		default:
     			throw -1;
-    	}
+   		}
     }
 
-    // TODO check if all parameters are set or not, if not throw exception
-
+	// check if all the parameters are set or throw error
+	// TODO remove the exception for cylinder once implemented
+    for (int i = 0; i < validArgs.size(); i++) if(i!=1 && !validArgs[i]) throw 0;
+	
     // return the initialized image parameters
    	return image;
 }
@@ -429,6 +453,7 @@ int main (int argc, char** argv) {
     	initializeViewingWindow(im);
     	vector<vector<RayType>> rays = getRays(im);
 
+		//use the traced ray to get the image
     	for (int i=0; i<im.height; i++) {
     		for (int j=0; j<im.width; j++) {
     			image[i][j] = traceRay(rays[i][j], im);
@@ -437,9 +462,20 @@ int main (int argc, char** argv) {
 
     	string file = createFileAndWriteHeader(argv[1], im.width, im.height);
     	drawImage(file, im.width, im.height, image);
-    } catch (int e){
-    	cout << "something is wrong" << endl;
+    } catch (int e) {
+		switch(e) {
+			case -1: 
+				cout << "please verify input" << endl;
+				break;
+			case 0:
+				cout << "all parameters not specified, please check" << endl;
+				break;
+			case 1:
+				cout << "U vector is zero, please check view and up direction" << endl; 
+				break;
+		}
     }
+
 	return 0;
 }
 

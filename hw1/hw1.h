@@ -2,7 +2,7 @@
 
 // distance between view origin in viewing window
 #define DOW 5
-// defining constant pie
+// defining the constant pie
 #define PI 3.14159265
 
 // struct to store color at a point in the image plane
@@ -21,7 +21,7 @@ struct MaterialType {
 struct RayType {
 	// origin of the line
 	float x, y, z;
-	// point minus the origin
+	// point minus the origin, the direction
 	float dx, dy, dz;
 };
 
@@ -55,7 +55,13 @@ struct CylinderType {
 	MaterialType m;
 };
 
-// struct to define the viewing window
+/* struct to define the viewing window
+ * defines the following parameters
+ * ul: upper left corner of the viewing window
+ * ur: upper right corner of the viewing window
+ * ll: lower left corner of the vieweing window
+ * lr: lower right corner of the viewing window
+ */
 struct ViewingWindow {
 	VectorType ul, ur, ll, lr;
 };
@@ -66,7 +72,10 @@ struct Image {
 	VectorType viewDirection, upDirection, U, V, W;
 	PointType eye;
 	ViewingWindow window;
+	// horizontal field of view
 	float hfov;
+	// defining the background color of the image
 	ColorType backgroundColor;
+	// vector to store all the spheres in the image
 	std::vector<SphereType> spheres;	
 };
