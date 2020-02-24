@@ -192,6 +192,13 @@ float getAttnFactor(LightType light, float dist) {
 	return (float)1.0/(light.c1+light.c2*dist+light.c3*dist*dist);
 }
 
+// returns the alpha factor for depthQueuing
+float getAlpha(DepthCue dQ, float dist) {
+	if (dist <= dQ.dmin) return dQ.amax;
+	if (dist >= dQ.dmax) return dQ.amin;
+	return dQ.amin + (dQ.amax - dQ.amin)*((dQ.dmax - dist)/(dQ.dmax - dQ.dmin));
+}
+
 // creates all the rays that will be used to probe through 
 vector<vector<RayType>> getRays(Image im) {
 	int w = im.width, h = im.height;
@@ -233,6 +240,7 @@ float getSphereIntersectionDistance(RayType	ray, SphereType sphere) {
 			+ ray.dz*(ray.z-sphere.z));
 	float C = (ray.x-sphere.x)*(ray.x-sphere.x) 
 			+ (ray.y-sphere.y)*(ray.y-sphere.y)
+
 	    	+ (ray.z-sphere.z)*(ray.z-sphere.z) 
 	        - sphere.r*sphere.r;
 
@@ -262,6 +270,10 @@ ColorType shadeRay(Image im, int objId, RayType ray, float dist) {
 	VectorType surfNorm = getVector(center, intPt), zero = {0.0, 0.0, 0.0}; 
 	surfNorm = getUnitVector(surfNorm);
 	VectorType L;
+	VectorType V = getVector(intPt, im.eye);
+	float distEyeIntPt = getMagnitude(V);
+    V = getUnitVector(V);
+
 	// iterate through all light sources
 	for (LightType& light: im.lights) {
 		float shadowFlag = 1.0;
@@ -280,8 +292,6 @@ ColorType shadeRay(Image im, int objId, RayType ray, float dist) {
 		lightDiff = dotProduct(lightDiff, light.c); // multiplying intensities
 		
         // specular related terms of phong equation	
-		VectorType V = getVector(intPt, im.eye);
-	    V = getUnitVector(V);
 		VectorType H = sum(V, L);
     	H = getUnitVector(H);	
 		float nh = getDotProduct(H, surfNorm);
@@ -330,6 +340,10 @@ ColorType shadeRay(Image im, int objId, RayType ray, float dist) {
     // add up all the diffusion and spec terms for all light sources
 	ColorType res = addColors(diff, amb); res = addColors(res, spec);
 	res = clampColor(res); // clamp intensities to prevent overflow
+	if (im.depthQFlag) {
+		float dQFac = getAlpha(im.depthQ, distEyeIntPt);
+		res = addColors(scaleColor(res, dQFac), scaleColor(im.depthQ.c, (float)1.0-dQFac));
+	}
 	return res;
 }
 
@@ -434,7 +448,7 @@ Image readInput(string fileName) {
 	unordered_map<string, int> cases = {
 		{"bkgcolor", 0}, {"eye", 1}, {"hfov", 2},
 		{"imsize", 3}, {"light", 4}, {"mtlcolor", 5}, {"sphere", 6}, {"viewdir", 7},
-		{"updir", 8}, {"attlight", 9} 
+		{"updir", 8}, {"attlight", 9}, {"depthcueing", 10} 
 	};
 
 	vector<bool> validArgs(9, false);
@@ -629,6 +643,25 @@ Image readInput(string fileName) {
 				break;
 			}
 
+			case 10: {
+				if (tokens.size()!=8 || !checkFloat(tokens[1])
+					|| !checkFloat(tokens[2]) || !checkFloat(tokens[3])
+    			    || !checkFloat(tokens[4]) || !checkFloat(tokens[5])
+    			    || !checkFloat(tokens[6]) || !checkFloat(tokens[7])) throw -1;
+
+ 				float red = stof(tokens[1]), green = stof(tokens[2]), blue = stof(tokens[3]);
+				float amax = stof(tokens[4]), amin = stof(tokens[5]),
+					  dmax = stof(tokens[6]), dmin = stof(tokens[7]);
+				if (red<0.0 || red>1.0 || green<0.0 || green>1.0 
+				    || blue<0.0 || blue>1.0) throw -1;
+
+                ColorType c = {red, blue, green};
+				DepthCue dQ = {c, amax, amin, dmax, dmin};
+ 				image.depthQFlag = true;
+				image.depthQ = dQ;
+				break;
+			}
+
     		default: {
     			throw -1;
     		}
@@ -636,7 +669,6 @@ Image readInput(string fileName) {
     }
 
 	// check if all the parameters are set or throw error
-	// TODO remove the exception for cylinder once implemented
 	for (const bool& valid : validArgs) if (!valid) throw 0;	
     // return the initialized image parameters
    	return image;

@@ -70,14 +70,10 @@ struct VectorType {
 	float dx, dy, dz;
 };
 
-// struct to store information about a cylinder 
-struct CylinderType {
-	// the center of the sphere
-	float x, y, z;
-	// radius of the sphere
-	float r;
-	// for now the shere is of solid color
-	MaterialType m;
+// struct to store depth cue related information
+struct DepthCue {
+    ColorType c;
+	float amax, amin, dmax, dmin;
 };
 
 /* struct to define the viewing window
@@ -97,10 +93,12 @@ struct Image {
 	VectorType viewDirection, upDirection, U, V, W;
 	PointType eye;
 	ViewingWindow window;
+	DepthCue depthQ;
 	// horizontal field of view
 	float hfov;
 	// defining the background color of the image
 	ColorType backgroundColor;
+	bool depthQFlag;
 	// vector to store all the spheres in the image
 	std::vector<SphereType> spheres;	
 	// vector to store all light sources
