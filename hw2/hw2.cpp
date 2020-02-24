@@ -1,14 +1,15 @@
 #include "hw2.h"
+#include <algorithm>
 #include <ctype.h>
 #include <cmath>
 #include <float.h>
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <stdlib.h>
 #include <string>
 #include <unordered_map>
 #include <utility>
-#include <algorithm>
 
 using namespace std;
 
@@ -88,6 +89,12 @@ void displayRay(RayType a) {
 	cout << a.x << "," << a.y << "," << a.z << ":"
 		<< a.dx << "," << a.dy << "," << a.dz << endl;
 }
+
+// display point
+void displayPoint(PointType a) {
+	cout << a.x << "," << a.y << "," << a.z << endl;
+}
+	
 
 // returns the magnitude of a vector
 float getMagnitude(VectorType v) {
@@ -254,7 +261,7 @@ ColorType shadeRay(Image im, int objId, RayType ray, float dist) {
 	for (LightType& light: im.lights) {
 		float shadowFlag = 1.0;
 	    if (light.pointLight) {// point light case
-            PointType l = {light.x, light.y, light.z};
+			PointType l = {light.x, light.y, light.z};
 			L = getVector(intPt, l);
 		} else { // directional light case
       	 	L = {light.x, light.y, light.z};	
@@ -280,7 +287,13 @@ ColorType shadeRay(Image im, int objId, RayType ray, float dist) {
 
 		// to calculate the shadow component
 		for (int t=0; t<SHADOWTESTCOUNT; t++) {
-		   RayType ray = createRay(intPt, {light.x, light.y, light.z});
+            float j_x = static_cast<float>(rand())/static_cast<float>(RAND_MAX);
+	   		float j_y = static_cast<float>(rand())/static_cast<float>(RAND_MAX);
+			float j_z = static_cast<float>(rand())/static_cast<float>(RAND_MAX);
+			j_x = j_x*JITTER; j_y = j_y*JITTER; j_z = j_z*JITTER;
+			//displayPoint({j_x, j_y, j_z});
+    
+		   RayType ray = createRay(intPt, {light.x+j_x, light.y+j_y, light.z+j_z});
 		   if (!light.pointLight) { // if the light is directional
 		       ray = getRay(intPt, L);
 		   }
@@ -301,7 +314,6 @@ ColorType shadeRay(Image im, int objId, RayType ray, float dist) {
 
 	   	if (!light.pointLight && shadowFlag<1.0) {shadowFlag = 0.0;}
 		else {shadowFlag = shadowFlag/(float)SHADOWTESTCOUNT;}
-		cout << shadowFlag << endl;
 		diff = addColors(diff, scaleColor(lightDiff, shadowFlag)); // add the effect of this light
  		spec = addColors(spec, scaleColor(lightSpec, shadowFlag));// add the effect of this light 
 	}

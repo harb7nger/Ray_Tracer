@@ -7,9 +7,13 @@
 #define PI 3.14159265
 
 // defining the number of test rays
-#define SHADOWTESTCOUNT 50
+#define SHADOWTESTCOUNT 121
 
-#define EPI 0.05
+// jitter
+#define JITTER 0.6
+
+// tolerance for shadows
+#define EPI 0.061
 // struct to store color at a point in the image plane
 struct ColorType {
     float red;
