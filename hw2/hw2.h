@@ -6,6 +6,10 @@
 // defining the constant pie
 #define PI 3.14159265
 
+// defining the number of test rays
+#define SHADOWTESTCOUNT 50
+
+#define EPI 0.05
 // struct to store color at a point in the image plane
 struct ColorType {
     float red;

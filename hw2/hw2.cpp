@@ -167,6 +167,12 @@ RayType createRay(PointType p, VectorType a) {
 	return res;
 }
 
+// 
+RayType getRay(PointType a, VectorType v) {
+	RayType res = {a.x, a.y, a.z, v.dx, v.dy, v.dz};
+	return res;
+}
+
 // given ray and distance returns the point
 PointType getPoint(RayType ray, float dist) {
 	float x = ray.x + dist*ray.dx, y = ray.y + dist*ray.dy, z = ray.z + dist*ray.dz;
@@ -246,6 +252,7 @@ ColorType shadeRay(Image im, int objId, RayType ray, float dist) {
 	VectorType L;
 	// iterate through all light sources
 	for (LightType& light: im.lights) {
+		float shadowFlag = 1.0;
 	    if (light.pointLight) {// point light case
             PointType l = {light.x, light.y, light.z};
 			L = getVector(intPt, l);
@@ -254,30 +261,51 @@ ColorType shadeRay(Image im, int objId, RayType ray, float dist) {
 		}
 		// diffusion related terms of phong equation
 		float mag = getMagnitude(L);
-	    if (mag != 0) { 
-	    	L = getUnitVector(L);
-			float ln = getDotProduct(L, surfNorm);
-			ln = ln < 0.0 ? 0.0:ln;
-			cout << ln << endl;
-			ColorType lightDiff = scaleColor(sphere.m.alb, ln*sphere.m.kd);
-			lightDiff = dotProduct(lightDiff, light.c); // multiplying intensities
-	 		diff = addColors(diff, lightDiff); // add the effect of this light
-		}
+    	L = getUnitVector(L);
+		float ln = getDotProduct(L, surfNorm);
+		ln = ln < 0.0 ? 0.0:ln;
+		ColorType lightDiff = scaleColor(sphere.m.alb, ln*sphere.m.kd);
+		lightDiff = dotProduct(lightDiff, light.c); // multiplying intensities
 		
         // specular related terms of phong equation	
 		VectorType V = getVector(intPt, im.eye);
+	    V = getUnitVector(V);
 		VectorType H = sum(V, L);
-        mag = getMagnitude(H);	
-        if (mag !=0) {
-        	H = getUnitVector(H);	
-			float nh = getDotProduct(H, surfNorm);
-			nh = nh < 0.0 ? 0.0:nh;
-			nh = pow(nh, sphere.m.n); 
-			ColorType lightSpec = scaleColor(sphere.m.spec, nh*sphere.m.ks);
-			lightSpec = dotProduct(lightSpec, light.c); // multiplying intensities
-	 		spec = addColors(spec, lightSpec);// add the effect of this light 
-        }
+    	H = getUnitVector(H);	
+		float nh = getDotProduct(H, surfNorm);
+		nh = nh < 0.0 ? 0.0:nh;
+		nh = pow(nh, sphere.m.n); 
+		ColorType lightSpec = scaleColor(sphere.m.spec, nh*sphere.m.ks);
+		lightSpec = dotProduct(lightSpec, light.c); // multiplying intensities
+
+		// to calculate the shadow component
+		for (int t=0; t<SHADOWTESTCOUNT; t++) {
+		   RayType ray = createRay(intPt, {light.x, light.y, light.z});
+		   if (!light.pointLight) { // if the light is directional
+		       ray = getRay(intPt, L);
+		   }
+		   float minDist = FLT_MAX;
+		   for (int i=0; i<im.spheres.size(); i++) { // check for intersection with all spheres
+		   		if (i == objId) continue; // not to check for sphere where the intersection lies on
+		   		float dist = getSphereIntersectionDistance(ray, im.spheres[i]);
+		   		if (dist == FLT_MAX) continue;	
+		   		if (minDist > dist && dist > EPI) minDist = dist;
+		   }
+
+		   if (!light.pointLight && minDist!=FLT_MAX) shadowFlag += 0.0;
+		   else if (light.pointLight && minDist!=FLT_MAX) {
+		   		if (minDist < mag) {shadowFlag += 0.0;}
+		   		else {shadowFlag += 1.0;}
+		   } else if (minDist==FLT_MAX) {shadowFlag += 1.0;}
+		}
+
+	   	if (!light.pointLight && shadowFlag<1.0) {shadowFlag = 0.0;}
+		else {shadowFlag = shadowFlag/(float)SHADOWTESTCOUNT;}
+		cout << shadowFlag << endl;
+		diff = addColors(diff, scaleColor(lightDiff, shadowFlag)); // add the effect of this light
+ 		spec = addColors(spec, scaleColor(lightSpec, shadowFlag));// add the effect of this light 
 	}
+	
     // add up all the diffusion and spec terms for all light sources
 	ColorType res = addColors(diff, amb); res = addColors(res, spec);
 	res = clampColor(res); // clamp intensities to prevent overflow
