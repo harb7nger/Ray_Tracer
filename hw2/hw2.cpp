@@ -187,6 +187,11 @@ PointType getPoint(RayType ray, float dist) {
 	return res;
 }
 
+// returns the attenuation factor for a given light source
+float getAttnFactor(LightType light, float dist) {
+	return (float)1.0/(light.c1+light.c2*dist+light.c3*dist*dist);
+}
+
 // creates all the rays that will be used to probe through 
 vector<vector<RayType>> getRays(Image im) {
 	int w = im.width, h = im.height;
@@ -314,8 +319,12 @@ ColorType shadeRay(Image im, int objId, RayType ray, float dist) {
 
 	   	if (!light.pointLight && shadowFlag<1.0) {shadowFlag = 0.0;}
 		else {shadowFlag = shadowFlag/(float)SHADOWTESTCOUNT;}
-		diff = addColors(diff, scaleColor(lightDiff, shadowFlag)); // add the effect of this light
- 		spec = addColors(spec, scaleColor(lightSpec, shadowFlag));// add the effect of this light 
+		
+		float atF = 1; // attenuation factor
+		if (light.atten) atF = getAttnFactor(light, mag); 
+
+		diff = addColors(diff, scaleColor(lightDiff, atF*shadowFlag)); // add the effect of this light
+ 		spec = addColors(spec, scaleColor(lightSpec, atF*shadowFlag));// add the effect of this light 
 	}
 	
     // add up all the diffusion and spec terms for all light sources
@@ -425,7 +434,7 @@ Image readInput(string fileName) {
 	unordered_map<string, int> cases = {
 		{"bkgcolor", 0}, {"eye", 1}, {"hfov", 2},
 		{"imsize", 3}, {"light", 4}, {"mtlcolor", 5}, {"sphere", 6}, {"viewdir", 7},
-		{"updir", 8}
+		{"updir", 8}, {"attlight", 9} 
 	};
 
 	vector<bool> validArgs(9, false);
@@ -503,13 +512,15 @@ Image readInput(string fileName) {
 					|| b<0.0 || b>1.0) throw -1; 
 				ColorType color = {(float)r, (float)g, (float)b};
                 if (w == 1) { // for point lights
-			     	LightType light = {(float)x, (float)y, (float)z, true, color};	
+			     	LightType light 	
+						= {(float)x, (float)y, (float)z, true, false, color, 0, 0, 0};	
 					image.lights.push_back(light);
 				} else { // for directional lights
 				   	VectorType v = {(float)x, (float)y, (float)z};
 				    v = negativeOfVector(v);
 					v = getUnitVector(v);
-				    LightType light = {v.dx, v.dy, v.dz, false, color};	
+				    LightType light 
+						= {v.dx, v.dy, v.dz, false, false, color, 0, 0, 0};	
 					image.lights.push_back(light);
 				}
 				validArgs[cases["light"]] = true;
@@ -541,7 +552,7 @@ Image readInput(string fileName) {
 				          oS = {(float)oSr, (float)oSg, (float)oSb};
 				
 				material = {oD, oS, (float)ka, (float)kd, (float)ks, (float)n};
-				cout << "mtlcolor" << endl;
+				// cout << "mtlcolor" << endl;
 				break;	
     		}
 
@@ -595,13 +606,34 @@ Image readInput(string fileName) {
 					break;	
     		}
 
+			case 9: {
+				if (tokens.size()!=11 || !checkFloat(tokens[1])
+					|| !checkFloat(tokens[2]) || !checkFloat(tokens[3])
+    			    || !checkFloat(tokens[4]) || !checkFloat(tokens[5])
+    			    || !checkFloat(tokens[6]) || !checkFloat(tokens[7])
+    			    || !checkFloat(tokens[8]) || !checkFloat(tokens[9])
+    			    || !checkFloat(tokens[10])) throw -1;
+
+				float x = stof(tokens[1]), y = stof(tokens[2]), z = stof(tokens[3]),
+					  w = stof(tokens[4]), r = stof(tokens[5]), g= stof(tokens[6]),
+                      b = stof(tokens[7]), c1 = stof(tokens[8]),
+					  c2 = stof(tokens[9]), c3 = stof(tokens[10]);
+				if (w!=1.0 || r<0.0 || r>1.0 || g<0.0 || g>1.0 
+					|| b<0.0 || b>1.0) throw -1; 
+				ColorType color = {(float)r, (float)g, (float)b};
+			    LightType light 
+						= {(float)x, (float)y, (float)z, true, true, color, c1, c2, c3};	
+				image.lights.push_back(light);
+				validArgs[cases["light"]] = true;
+				// cout << "lights" << endl;
+				break;
+			}
+
     		default: {
-    			cout << "def" << endl;
     			throw -1;
     		}
    		}
     }
-    cout << "fail" << endl;
 
 	// check if all the parameters are set or throw error
 	// TODO remove the exception for cylinder once implemented

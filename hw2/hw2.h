@@ -43,9 +43,11 @@ struct LightType {
 	// the point or direction
 	float x, y, z;
 	// point or direction light
-	bool pointLight;
-        // color
+	bool pointLight, atten;
+    // color
 	ColorType c;
+	// attenuation constants
+	float c1, c2, c3;
 };
 
 // struct to store information about a sphere
