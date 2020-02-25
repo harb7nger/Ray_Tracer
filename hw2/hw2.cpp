@@ -455,7 +455,6 @@ Image readInput(string fileName) {
 	vector<string> tokens;
     while (!infile.eof()) {
     	getline(infile, LINE);
-    	cout << LINE << endl;
     	tokens = tokenizeLine(LINE, ' ');
     	if (!tokens.size()) continue;
 		// initialize inputs for the image through a switch case
@@ -473,7 +472,7 @@ Image readInput(string fileName) {
 				validArgs[cases["bkgcolor"]] = true;
 				ColorType color = {red, green, blue};
 				image.backgroundColor = color;
-				cout << "bkgcolor" << endl;
+				// cout << "bkgcolor" << endl;
 				break;
 			}
 
@@ -488,7 +487,7 @@ Image readInput(string fileName) {
 				PointType eye = {(float)x, (float)y, (float)z};
 				image.eye = eye;
 				validArgs[cases["eye"]] = true;
-				cout << "eye" << endl;
+				// cout << "eye" << endl;
 				break;
     		}
 
@@ -497,7 +496,7 @@ Image readInput(string fileName) {
 				float angle = stof(tokens[1]);
 				image.hfov = angle;
 				validArgs[cases["hfov"]] = true;
-				cout << "hfov" << endl;
+				// cout << "hfov" << endl;
 				break;
     		}
 
@@ -509,7 +508,7 @@ Image readInput(string fileName) {
 					
 				image.width	 = width; image.height = height;
 				validArgs[cases["imsize"]] = true;
-				cout << "imsize" << endl;
+				// cout << "imsize" << endl;
 				break;
     		}
 
@@ -538,7 +537,7 @@ Image readInput(string fileName) {
 					image.lights.push_back(light);
 				}
 				validArgs[cases["light"]] = true;
-				cout << "lights" << endl;
+				// cout << "lights" << endl;
 				break;
 			}
 
@@ -574,7 +573,6 @@ Image readInput(string fileName) {
     			if (tokens.size()!=5 || !checkFloat(tokens[1])
     			    || !checkFloat(tokens[2]) || !checkFloat(tokens[3])
     			    || !checkFloat(tokens[4])) throw -1;
-			        cout << "here1" << endl;	
 				float x = stof(tokens[1]), y = stof(tokens[2]),
 					z = stof(tokens[3]);
 				
@@ -583,11 +581,10 @@ Image readInput(string fileName) {
 				if (radius<=0 || !validArgs[cases["mtlcolor"]]) throw -1;
 				validArgs[cases["sphere"]] = true;
 
-			        cout << "here2" << endl;	
 				SphereType sphere = {(float)x, (float)y, (float)z,
 				    (float)radius, material};
 				image.spheres.push_back(sphere);
-				cout << "sphere" << endl;
+				// cout << "sphere" << endl;
 				break;
     		}
 
@@ -601,7 +598,7 @@ Image readInput(string fileName) {
 				VectorType viewdir = {(float)x, (float)y, (float)z};
 				image.viewDirection = viewdir;
 				validArgs[cases["viewdir"]] = true;
-				cout << "viewdir" << endl;
+				// cout << "viewdir" << endl;
 				break;
     		}
 
@@ -616,7 +613,7 @@ Image readInput(string fileName) {
 					VectorType up = {(float)x, (float)y, (float)z};
 					image.upDirection = up;
 					validArgs[cases["updir"]] = true;
-					cout << "updir" << endl;
+					// cout << "updir" << endl;
 					break;	
     		}
 
