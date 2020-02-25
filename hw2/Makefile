@@ -1,4 +1,4 @@
-hw1: hw1.cpp
+hw2: hw2.cpp
 	g++ -o hw2 hw2.cpp
 
 clean:
