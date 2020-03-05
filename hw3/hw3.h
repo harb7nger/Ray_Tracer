@@ -17,15 +17,6 @@
 // tolerance for shadows
 #define EPI 0.061
 
-// dummy vertex
-#define VD {FLT_MAX, FLT_MAX, FLT_MAX}
-
-// dummy point
-#define PD {FLT_MAX, FLT_MAX, FLT_MAX}
-
-// dummy face
-#define FD {PD, PD, PD}
-
 // struct to store color at a point in the image plane
 struct ColorType {
     float red;
@@ -77,6 +68,12 @@ struct PointType {
 	float x, y, z;
 };
 
+// struct to store information about a texture 
+struct TextureType {
+	float u, v;
+};
+
+
 // struct to store information about a vector along a direction
 struct VectorType {
 	float dx, dy, dz;
@@ -85,7 +82,10 @@ struct VectorType {
 // struct to store information related to the face of a triangle
 struct FaceType {
     PointType v1, v2, v3;
+	TextureType vt1, vt2, vt3;
+	VectorType vn1, vn2, vn3;
     MaterialType m;
+	int type;
 };
 
 // struct to store depth cue related information
@@ -105,7 +105,9 @@ struct ViewingWindow {
 	VectorType ul, ur, ll, lr;
 };
 
-// struct to define the image at large
+/* struct to define the image at large
+ * all 1 indexed vectors are initialized with dummies
+ */
 struct Image {
 	int width, height;
 	VectorType viewDirection, upDirection, U, V, W;
@@ -122,8 +124,12 @@ struct Image {
 	// vector to store all light sources
 	std::vector<LightType> lights;	
 	// vector to store all vertices
-	std::vector<PointType> vertices{VD};
+	std::vector<PointType> vertices{{}};
 	// adding first value to take care of 1 indexing
-	std::vector<FaceType> faces{FD};
+	std::vector<FaceType> faces{{}};
 	// vector to store all faces in the image
+	std::vector<TextureType> texts{{}};
+	// vector to store all texture points
+	std::vector<VectorType> norms{{}};
+	// vector to store all norms
 };

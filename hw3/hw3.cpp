@@ -41,7 +41,7 @@ vector<string> tokenizeLine(string line, char delim) {
 	vector<string> words;
 	string word;
 	while (getline(ss, word, delim)) {
-  		words.push_back(word);
+  		if (word != "") words.push_back(word);
 	}
 	return words;
 }
@@ -93,6 +93,29 @@ void displayRay(RayType a) {
 // display point
 void displayPoint(PointType a) {
 	cout << a.x << "," << a.y << "," << a.z << endl;
+}
+
+// display texture coordinates
+void displayTextCoor(TextureType t) {
+	cout << t.u << "," << t.v << endl;
+}
+
+// display face
+void displayFace(FaceType f) {
+	cout << "vertices" << endl;
+	displayPoint(f.v1);
+	displayPoint(f.v2);
+	displayPoint(f.v3);
+	cout << "textures" << endl;
+	displayTextCoor(f.vt1);
+	displayTextCoor(f.vt2);
+	displayTextCoor(f.vt3);
+	cout << "normals" << endl;
+	displayVector(f.vn1);
+	displayVector(f.vn2);
+	displayVector(f.vn3);
+	cout << "type:" << f.type << endl;
+	return;
 }
 	
 
@@ -670,9 +693,10 @@ Image readInput(string fileName) {
   	ifstream infile; infile.open(fileName);
 	string LINE;
 	unordered_map<string, int> cases = {
-		{"bkgcolor", 0}, {"eye", 1}, {"hfov", 2},
-		{"imsize", 3}, {"light", 4}, {"mtlcolor", 5}, {"sphere", 6}, {"viewdir", 7},
-		{"updir", 8}, {"attlight", 9}, {"depthcueing", 10} , {"v", 11}, {"f", 12}
+		{"bkgcolor", 0}, {"eye", 1}, {"hfov", 2}, {"imsize", 3},
+		{"light", 4}, {"mtlcolor", 5}, {"sphere", 6}, {"viewdir", 7},
+		{"updir", 8}, {"attlight", 9}, {"depthcueing", 10} , {"v", 11},
+		{"vn", 12}, {"vt", 13}, {"f", 14}
 	};
 
 	vector<bool> validArgs(9, false);
@@ -696,7 +720,7 @@ Image readInput(string fileName) {
 				validArgs[cases["bkgcolor"]] = true;
 				ColorType color = {red, green, blue};
 				image.backgroundColor = color;
-				cout << "bkgcolor" << endl;
+				// cout << "bkgcolor" << endl;
 				break;
 			}
 
@@ -711,7 +735,7 @@ Image readInput(string fileName) {
 				PointType eye = {(float)x, (float)y, (float)z};
 				image.eye = eye;
 				validArgs[cases["eye"]] = true;
-				cout << "eye" << endl;
+				// cout << "eye" << endl;
 				break;
     		}
 
@@ -720,7 +744,7 @@ Image readInput(string fileName) {
 				float angle = stof(tokens[1]);
 				image.hfov = angle;
 				validArgs[cases["hfov"]] = true;
-				cout << "hfov" << endl;
+				// cout << "hfov" << endl;
 				break;
     		}
 
@@ -732,7 +756,7 @@ Image readInput(string fileName) {
 					
 				image.width	 = width; image.height = height;
 				validArgs[cases["imsize"]] = true;
-				cout << "imsize" << endl;
+				// cout << "imsize" << endl;
 				break;
     		}
 
@@ -761,7 +785,7 @@ Image readInput(string fileName) {
 					image.lights.push_back(light);
 				}
 				validArgs[cases["light"]] = true;
-				cout << "lights" << endl;
+				// cout << "lights" << endl;
 				break;
 			}
 
@@ -789,7 +813,7 @@ Image readInput(string fileName) {
 				          oS = {(float)oSr, (float)oSg, (float)oSb};
 				
 				material = {oD, oS, (float)ka, (float)kd, (float)ks, (float)n};
-				cout << "mtlcolor" << endl;
+				// cout << "mtlcolor" << endl;
 				break;	
     		}
 
@@ -808,7 +832,7 @@ Image readInput(string fileName) {
 				SphereType sphere = {(float)x, (float)y, (float)z,
 				    (float)radius, material};
 				image.spheres.push_back(sphere);
-				cout << "sphere" << endl;
+				// cout << "sphere" << endl;
 				break;
     		}
 
@@ -822,7 +846,7 @@ Image readInput(string fileName) {
 				VectorType viewdir = {(float)x, (float)y, (float)z};
 				image.viewDirection = viewdir;
 				validArgs[cases["viewdir"]] = true;
-				cout << "viewdir" << endl;
+				// cout << "viewdir" << endl;
 				break;
     		}
 
@@ -837,7 +861,7 @@ Image readInput(string fileName) {
 					VectorType up = {(float)x, (float)y, (float)z};
 					image.upDirection = up;
 					validArgs[cases["updir"]] = true;
-					cout << "updir" << endl;
+					// cout << "updir" << endl;
 					break;	
     		}
 
@@ -860,7 +884,7 @@ Image readInput(string fileName) {
 						= {(float)x, (float)y, (float)z, true, true, color, c1, c2, c3};	
 				image.lights.push_back(light);
 				validArgs[cases["light"]] = true;
-				cout << "lights" << endl;
+				// cout << "lights" << endl;
 				break;
 			}
 
@@ -890,18 +914,113 @@ Image readInput(string fileName) {
 				float x = stof(tokens[1]), y = stof(tokens[2]), z = stof(tokens[3]);
 				PointType vertex = {(float)x, (float)y, (float)z};
 				image.vertices.push_back(vertex);
+				// cout << "vertex" << endl;
 				break;
 			}
 
 			case 12: {
-                if (tokens.size()!=4 || !checkInt(tokens[1])
-					|| !checkInt(tokens[2]) || !checkInt(tokens[3])) throw -1;
- 			 	int v1 = stoi(tokens[1]), v2 = stoi(tokens[2]), v3 = stoi(tokens[3]);					
-				int size = image.vertices.size();
-				if (v1 >= size || v2 >= size || v3 >=size) throw 3;
-				PointType first = image.vertices[v1], second = image.vertices[v2],
-						  third = image.vertices[v3];
-				FaceType face = {first, second, third, material};
+				if (tokens.size()!=4 || !checkFloat(tokens[1])
+					|| !checkFloat(tokens[2]) || !checkFloat(tokens[3])) throw 3;
+				float dx = stof(tokens[1]), dy = stof(tokens[2]), dz = stof(tokens[3]);
+			 	VectorType normal = {(float)dx, (float)dy, (float)dz};
+				image.norms.push_back(normal);
+				// cout << "vertex normal" << endl;
+				break;
+			}
+
+			case 13: {
+				if (tokens.size()!=3 || !checkFloat(tokens[1])
+					|| !checkFloat(tokens[2])) throw 4;
+				float u = stof(tokens[1]), v = stof(tokens[2]);
+			 	TextureType texturePt = {(float)u, (float)v};
+				image.texts.push_back(texturePt);
+				// cout << "texture" << endl;
+				break;
+			}
+
+			case 14: {
+                if (tokens.size()!=4) throw -1;
+
+				vector<string> first = tokenizeLine(tokens[1], '/'),
+						second = tokenizeLine(tokens[2], '/'),
+						third = tokenizeLine(tokens[3], '/');
+
+				// get lenght of each token set
+				int fs = first.size(), ss = second.size(), ts = third.size();
+				// get the bounds for all vectors
+				int vertexSize = image.vertices.size(), normSize = image.norms.size(),
+					textSize = image.texts.size();
+
+				// initialize lookups for face as 0s
+				int v1 = 0, v2 = 0, v3 = 0, // indices for all attr
+					vt1 = 0, vt2 = 0, vt3 = 0, 
+					vn1 = 0, vn2 = 0, vn3 = 0;
+
+				int type = 0;
+				// count the number of slashes, thats how we know the input type
+				int slash = count(tokens[1].begin(), tokens[1].end(), '/');
+
+				// if lengths don't match
+				if ((fs!=ss)||(ss!=ts)||(ts!=fs)) throw 5;
+
+				/* performs indirect hashing of sorts
+				 * v -> 1
+				 * v/vt -> 3
+				 * v//vn -> 4
+				 * v/vt/vn -> 5
+				 * the corresponding types are 0, 1, 2, 3
+				*/
+				fs = fs+slash;
+				// handles differnt pncs of face inputs
+				switch(fs) {
+					  case 1: {
+ 			 			v1 = stoi(first[0]), v2 = stoi(second[0]), v3 = stoi(third[0]);					
+						type = 0; // stands for a basic face
+						break;			 
+					  }
+
+					  case 3: {
+ 			 			v1 = stoi(first[0]), v2 = stoi(second[0]), v3 = stoi(third[0]);					
+						vt1 = stoi(first[1]), vt2 = stoi(second[1]), vt3 = stoi(third[1]);
+						type = 1; // stands for texture without smooth shading
+						break;			 
+					  }
+					    	
+					  case 4: {
+ 			 			v1 = stoi(first[0]), v2 = stoi(second[0]), v3 = stoi(third[0]);					
+						vn1 = stoi(first[1]), vn2 = stoi(second[1]), vn3 = stoi(third[1]);
+						type = 2; // stands for face with smooth shading only
+						break;			 
+
+					  }
+
+					  case 5: {
+ 			 			v1 = stoi(first[0]), v2 = stoi(second[0]), v3 = stoi(third[0]);					
+						vt1 = stoi(first[1]), vt2 = stoi(second[1]), vt3 = stoi(third[1]);
+						vn1 = stoi(first[2]), vn2 = stoi(second[2]), vn3 = stoi(third[2]);
+						type = 3; // stands for texture and smooth shading 
+						break;			 
+					  }
+				}
+					 
+					   
+				if (v1 >= vertexSize || v2 >= vertexSize || v3 >= vertexSize) throw 5;
+				if (vn1 >= normSize || vn2 >= normSize || vn3 >= normSize) throw 5;
+
+				PointType P1 = image.vertices[v1], P2 = image.vertices[v2],
+					  P3 = image.vertices[v3]; // vertices 
+
+				TextureType T1 = image.texts[vt1], T2 = image.texts[vt2],
+				            T3 = image.texts[vt3]; // texture points 
+
+				VectorType N1 = image.norms[vn1], N2 = image.norms[vn2], 
+					   N3 = image.norms[vn3]; // norms
+
+				FaceType face = {P1, P2, P3, T1, T2, T3,
+						 N1, N2, N3, material, type};
+
+				//displayFace(face);
+
 				image.faces.push_back(face);				
 				break;
 			}
@@ -915,6 +1034,7 @@ Image readInput(string fileName) {
 	// check if all the parameters are set or throw error
 	// for (const bool& valid : validArgs) if (!valid) throw 0;	
     // return the initialized image parameters
+	//exit(5);
    	return image;
 }
 
@@ -962,6 +1082,12 @@ int main (int argc, char** argv) {
 				cout << "Invalid vertex entry encountered, please check input" << endl;
 				break;
 			case 3:
+				cout << "Invalid vertex normal entry encountered, please check input" << endl;
+				break;
+			case 4:
+				cout << "Invalid vertex texture entry encountered, please check input" << endl;
+				break;
+			case 5:
 				cout << "Invalid face entry encountered, please check input" << endl;
 				break;
 		}
