@@ -17,6 +17,9 @@
 // tolerance for shadows
 #define EPI 0.061
 
+// dummy point
+#define PD {FLT_MAX, FLT_MAX, FLT_MAX}
+
 // struct to store color at a point in the image plane
 struct ColorType {
     float red;
@@ -88,12 +91,6 @@ struct FaceType {
 	int type;
 };
 
-// struct to store depth cue related information
-struct DepthCue {
-    ColorType c;
-	float amax, amin, dmax, dmin;
-};
-
 /* struct to define the viewing window
  * defines the following parameters
  * ul: upper left corner of the viewing window
@@ -113,12 +110,10 @@ struct Image {
 	VectorType viewDirection, upDirection, U, V, W;
 	PointType eye;
 	ViewingWindow window;
-	DepthCue depthQ;
 	// horizontal field of view
 	float hfov;
 	// defining the background color of the image
 	ColorType backgroundColor;
-	bool depthQFlag;
 	// vector to store all the spheres in the image
 	std::vector<SphereType> spheres;	
 	// vector to store all light sources

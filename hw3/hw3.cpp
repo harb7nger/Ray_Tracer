@@ -210,6 +210,14 @@ ColorType clampColor(ColorType a) {
 	return res;
 }
 
+
+// displays color
+void displayColor(ColorType c) {
+	cout << "red:" << c.red
+		 << "green:" << c.green
+		 << "blue:" << c.blue << endl;
+}
+
 // returns resultant color when considering two colors
 ColorType getResultant(ColorType a, ColorType b, Image& im) {
 	if (areEqual(a, im.backgroundColor) && areEqual(b, im.backgroundColor)) {
@@ -249,12 +257,6 @@ float getAttnFactor(LightType light, float dist) {
 	return (float)1.0/(light.c1+light.c2*dist+light.c3*dist*dist);
 }
 
-// returns the alpha factor for depthQueuing
-float getAlpha(DepthCue dQ, float dist) {
-	if (dist <= dQ.dmin) return dQ.amax;
-	if (dist >= dQ.dmax) return dQ.amin;
-	return dQ.amin + (dQ.amax - dQ.amin)*((dQ.dmax - dist)/(dQ.dmax - dQ.dmin));
-}
 
 // creates all the rays that will be used to probe through 
 vector<vector<RayType>> getRays(Image im) {
@@ -411,6 +413,8 @@ ColorType shadeRay(int objType, Image& im, int objId, RayType ray, float dist) {
 		VectorType surfNorm = getVector(center, intPt), zero = {0.0, 0.0, 0.0}; 
 	}
 
+    displayColor(amb);
+
     surfNorm = getUnitVector(surfNorm);
 	VectorType L;
 	VectorType V = getVector(intPt, im.eye);
@@ -478,15 +482,15 @@ ColorType shadeRay(int objType, Image& im, int objId, RayType ray, float dist) {
 
 		diff = addColors(diff, scaleColor(lightDiff, atF*shadowFlag)); // add the effect of this light
  		spec = addColors(spec, scaleColor(lightSpec, atF*shadowFlag));// add the effect of this light 
+		//displayColor(diff);
+		//displayColor(spec);
 	}
 	
     // add up all the diffusion and spec terms for all light sources
 	ColorType res = addColors(diff, amb); res = addColors(res, spec);
 	res = clampColor(res); // clamp intensities to prevent overflow
-	if (im.depthQFlag) {
-		float dQFac = getAlpha(im.depthQ, distEyeIntPt);
-		res = addColors(scaleColor(res, dQFac), scaleColor(im.depthQ.c, (float)1.0-dQFac));
-	}
+	//displayColor(res);
+	//cout << "XXXXXXXXXXXX" << endl;
 	return res;
 }
 
@@ -695,11 +699,11 @@ Image readInput(string fileName) {
 	unordered_map<string, int> cases = {
 		{"bkgcolor", 0}, {"eye", 1}, {"hfov", 2}, {"imsize", 3},
 		{"light", 4}, {"mtlcolor", 5}, {"sphere", 6}, {"viewdir", 7},
-		{"updir", 8}, {"attlight", 9}, {"depthcueing", 10} , {"v", 11},
-		{"vn", 12}, {"vt", 13}, {"f", 14}
+		{"updir", 8}, {"attlight", 9},
+		{"v", 10}, {"vn", 11}, {"vt", 12}, {"f", 13}
 	};
 
-	vector<bool> validArgs(9, false);
+	vector<bool> validArgs(14, false);
 	vector<string> tokens;
     while (!infile.eof()) {
     	getline(infile, LINE);
@@ -889,25 +893,6 @@ Image readInput(string fileName) {
 			}
 
 			case 10: {
-				if (tokens.size()!=8 || !checkFloat(tokens[1])
-					|| !checkFloat(tokens[2]) || !checkFloat(tokens[3])
-    			    || !checkFloat(tokens[4]) || !checkFloat(tokens[5])
-    			    || !checkFloat(tokens[6]) || !checkFloat(tokens[7])) throw -1;
-
- 				float red = stof(tokens[1]), green = stof(tokens[2]), blue = stof(tokens[3]);
-				float amax = stof(tokens[4]), amin = stof(tokens[5]),
-					  dmax = stof(tokens[6]), dmin = stof(tokens[7]);
-				if (red<0.0 || red>1.0 || green<0.0 || green>1.0 
-				    || blue<0.0 || blue>1.0) throw -1;
-
-                ColorType c = {(float)red, (float)blue, (float)green};
-				DepthCue dQ = {c, amax, amin, dmax, dmin};
- 				image.depthQFlag = true;
-				image.depthQ = dQ;
-				break;
-			}
-
-			case 11: {
                 if (tokens.size()!=4 || !checkFloat(tokens[1])
 					|| !checkFloat(tokens[2]) || !checkFloat(tokens[3])) throw 2;
 
@@ -918,7 +903,7 @@ Image readInput(string fileName) {
 				break;
 			}
 
-			case 12: {
+			case 11: {
 				if (tokens.size()!=4 || !checkFloat(tokens[1])
 					|| !checkFloat(tokens[2]) || !checkFloat(tokens[3])) throw 3;
 				float dx = stof(tokens[1]), dy = stof(tokens[2]), dz = stof(tokens[3]);
@@ -928,7 +913,7 @@ Image readInput(string fileName) {
 				break;
 			}
 
-			case 13: {
+			case 12: {
 				if (tokens.size()!=3 || !checkFloat(tokens[1])
 					|| !checkFloat(tokens[2])) throw 4;
 				float u = stof(tokens[1]), v = stof(tokens[2]);
@@ -938,7 +923,7 @@ Image readInput(string fileName) {
 				break;
 			}
 
-			case 14: {
+			case 13: {
                 if (tokens.size()!=4) throw -1;
 
 				vector<string> first = tokenizeLine(tokens[1], '/'),
