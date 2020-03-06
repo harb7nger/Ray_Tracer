@@ -79,11 +79,20 @@ struct SphereType {
 	float r;
 	// for now the shere is of solid color
 	MaterialType m;
+	// to store texture information
+	int t;
+
 };
 
 // struct to store information about a texture 
-struct TextureType {
+struct TexturePoint {
 	float u, v;
+};
+
+// struct to store texture 
+struct TextureType {
+	int width, height;
+	std::vector<std::vector<ColorType>> list;
 };
 
 
@@ -94,11 +103,16 @@ struct VectorType {
 
 // struct to store information related to the face of a triangle
 struct FaceType {
+	// vertices of a face
     PointType v1, v2, v3;
-	TextureType vt1, vt2, vt3;
+    // texture coordinates 
+	TexturePoint vt1, vt2, vt3;
+	// vertex normals
 	VectorType vn1, vn2, vn3;
+	// material properties
     MaterialType m;
-	int type;
+    // point type and texture index
+	int type, t;
 };
 
 /* struct to define the viewing window
@@ -133,8 +147,9 @@ struct Image {
 	// adding first value to take care of 1 indexing
 	std::vector<FaceType> faces{{}};
 	// vector to store all faces in the image
-	std::vector<TextureType> texts{{}};
+	std::vector<TexturePoint> texts{{}};
 	// vector to store all texture points
 	std::vector<VectorType> norms{{}};
 	// vector to store all norms
+	std::vector<TextureType> textures{{}};
 };
