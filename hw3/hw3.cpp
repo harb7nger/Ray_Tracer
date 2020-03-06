@@ -241,9 +241,15 @@ ColorType getResultant(ColorType a, ColorType b, Image& im) {
 
 // creates a ray given a point and vector
 RayType createRay(PointType p, VectorType a) {
-	VectorType dir = sum(p, negativeOfVector(a));
-	dir = getUnitVector(dir);
-	RayType res = {p.x, p.y, p.z, -dir.dx, -dir.dy, -dir.dz};
+	VectorType dir = getUnitVector(a);
+	RayType res = {p.x, p.y, p.z, dir.dx, dir.dy, dir.dz};
+	return res;
+}
+
+// creates a ray given a point and vector
+RayType createRay(PointType p, PointType a) {
+	VectorType dir = getVector(p, a);
+	RayType res = {p.x, p.y, p.z, dir.dx, dir.dy, dir.dz};
 	return res;
 }
 
@@ -292,7 +298,8 @@ vector<vector<RayType>> getRays(Image im) {
 		for (int j=0; j<w; j++) {
 			VectorType v = sum(delCenter, sum(multiplyScalar(delV, i),
 			                    multiplyScalar(delH, j)));
-			RayType	ray = createRay(im.eye, v);
+			PointType pt = {v.dx, v.dy, v.dz};
+			RayType	ray = createRay(im.eye, pt);
 			res[i].push_back(ray);
 		}
 	}
@@ -371,6 +378,23 @@ float getPlaneIntersectionDistance(RayType ray, FaceType face) {
 	return {alpha, beta, gamma};
 }*/
 
+float getTriangleArea(PointType p0, PointType p1, PointType p2) {
+	VectorType e1 = getVector(p0, p1);
+	VectorType e2 = getVector(p0, p2);
+	return 0.5*(getMagnitude(getCrossProduct(e1,e2)));
+}
+
+/*
+PointType getBaricenterCoordiantes(PointType p, FaceType face) {
+	float A = getTriangleArea(t.v1, t.v2, t.v3);
+	A = 1.0/A;
+	float alpha = getTriangleArea(p, t.v2, t.v3)*A;
+	float beta = getTriangleArea(t.v1, p, t.v3)*A;
+	float gamma = getTriangleArea(t.v1, t.v2, p)*A;
+
+	return {alpha, beta, gamma};
+}*/
+
 // to
 PointType getBarycentricCoord(PointType p, FaceType face) {
 	// intersection point wrt plane
@@ -385,11 +409,11 @@ PointType getBarycentricCoord(PointType p, FaceType face) {
 		  c = getMagnitude(getCrossProduct(e1, e3));
 	float alpha = a/A, beta = b/A, gamma = c/A;
 			
-    // cout << "alpha" << alpha << "beta" << beta << "gamma" << gamma << endl;
+    cout << "alpha" << alpha << "beta" << beta << "gamma" << gamma << endl;
 
-    if (alpha < 0 || alpha > 1 // to check if bcc are valid
-        || beta < 0 || beta > 1
-        || gamma < 0 || gamma > 1) return PD;
+    if (alpha < 0.0 || alpha > 1.0 // to check if bcc are valid
+        || beta < 0.0 || beta > 1.0
+        || gamma < 0.0 || gamma > 1.0 || (alpha+beta+gamma) != 1.0) return PD;
     return {alpha, beta, gamma};
 }
 
@@ -419,7 +443,8 @@ ColorType shadeRay(int objType, Image& im, int objId, PointType intPt, PointType
 	 	PointType center = {sphere.x, sphere.y, sphere.z}; 
 		surfNorm = getVector(center, intPt); 
 	}
-    //displayColor(amb);
+	/*displayVector(surfNorm);
+    displayColor(amb);*/
 
     surfNorm = getUnitVector(surfNorm);
 	VectorType L;
@@ -465,11 +490,12 @@ ColorType shadeRay(int objType, Image& im, int objId, PointType intPt, PointType
 			float j_z = static_cast<float>(rand())/static_cast<float>(RAND_MAX);
 			j_x = j_x*JITTER; j_y = j_y*JITTER; j_z = j_z*JITTER;
 			//displayPoint({j_x, j_y, j_z});
-    
-		   RayType ray = createRay(intPt, {light.x+j_x, light.y+j_y, light.z+j_z});
+    	   PointType endPt = {light.x+j_x, light.y+j_y, light.z+j_z};
+		   RayType ray = createRay(intPt, endPt);
 		   if (!light.pointLight) { // if the light is directional
 		       ray = getRay(intPt, L);
 		   }
+
 		   float minDist = FLT_MAX;
 		   for (int i=0; i<im.spheres.size(); i++) { // check for intersection with all spheres
 		   		if (i == objId) continue; // not to check for sphere where the intersection lies on
@@ -523,24 +549,24 @@ pair<float, int> getSphereIntersection(RayType ray, Image& im) {
 
 TriIntType getFaceIntersection(RayType ray, Image& im) {
 	float minDist = FLT_MAX;
-	int objId = 0;
+	int objId = -1;
+	cout << "printing ray again" << endl;
+	displayRay(ray);
+	PointType bcc = PD, intPt;
 	if (im.faces.size() == 1) return DI;
 	for (int i=1; i<im.faces.size(); i++) {
 		float dist = getPlaneIntersectionDistance(ray, im.faces[i]); 
 		if (dist == FLT_MAX) continue;
-		else if (minDist > dist) {
+		PointType pt = getPoint(ray, dist);
+		PointType b = getBarycentricCoord(pt, im.faces[i]);
+		if (minDist > dist && !areEqual(b, PD)) {
 			minDist = dist;
 			objId = i;
+			bcc = b;
+			intPt = pt;
 		}
 	}
-    // return the closeset valid triangle 
-	if (minDist != FLT_MAX) {
-		PointType pt = getPoint(ray, minDist);
-		PointType bcc = getBarycentricCoord(pt, im.faces[objId]);
-		if (areEqual(bcc, PD)) return DI;
-		return {objId, minDist, pt, bcc};
-	}
-	return DI;
+	return {objId, minDist, intPt, bcc};
 }
 
 /*
@@ -555,28 +581,21 @@ TriIntType getFaceIntersection(RayType ray, Image& im) {
 	* else shade ray as per the triangle
 */
 ColorType traceRay(RayType ray, Image& im) {	
-	ColorType sphereColor, faceColor;
-    int objId = -1;	
 	float minDist = FLT_MAX;
-	int objType = 0;
-    
-    // checking for triangle
+    pair<float, int> result = getSphereIntersection(ray, im);
     TriIntType triInt = getFaceIntersection(ray, im);
-
-    if (areEqual(triInt, DI)) {
-    	pair<float, int> result = getSphereIntersection(ray, im);
-		if (result.first == FLT_MAX) return im.backgroundColor;
-		PointType pt = getPoint(ray, result.first);
-		return shadeRay(0, im, result.second, pt, PD);
-    } else {
-    	pair<float, int> result = getSphereIntersection(ray, im);
-    	if (result.first < triInt.dist) {
-    		PointType pt = getPoint(ray, result.first);
-    		return shadeRay(0, im, result.second, pt, PD);
-    	} else {
-    		return shadeRay(1, im, triInt.objId, triInt.intPt, triInt.bcc);
-    	}
-    }
+	if (result.first < triInt.dist) {
+	     cout << "after:" << result.first << endl;
+	     cout << "afterS:" << result.second << endl;
+	     cout << (result.first == FLT_MAX) << endl;
+		  PointType pt = getPoint(ray, result.first);
+	      return shadeRay(0, im, result.second, pt, PD);
+	} else {
+	     //cout << "after:" << triInt.dist << endl;
+	     if (triInt.dist == FLT_MAX) return im.backgroundColor;
+	     cout << triInt.objId << endl;
+    	return shadeRay(1, im, triInt.objId, triInt.intPt, triInt.bcc);
+	}
 	return im.backgroundColor;
 }
 
@@ -1054,10 +1073,27 @@ int main (int argc, char** argv) {
     	initializeImagePlane(im);
     	initializeViewingWindow(im);
     	vector<vector<RayType>> rays = getRays(im);
+		    
+		// PointType pt = {5.0, -5.0, -5.0};	
+	 //  	VectorType dir = getVector(im.eye, pt);
+	 //  	displayVector(dir);
+		// RayType ray = createRay(im.eye, dir);
+		// displayRay(ray);
+		// ColorType c = traceRay(ray, im);
+
+/*		 pt = {-0.2, -0.2, 0.0};	
+	  	 dir = getVector(im.eye, pt);
+	  	displayVector(dir);
+		 ray = createRay(im.eye, dir);
+		displayRay(ray);
+		 c = traceRay(ray, im);
+*/
+		// exit(5);
 
 		//use the traced ray to get the image
     	for (int i=0; i<im.height; i++) {
     		for (int j=0; j<im.width; j++) {
+			    
 				image[i][j] = traceRay(rays[i][j], im); 
     		}
     	}
