@@ -180,6 +180,14 @@ bool areEqual(PointType a, PointType b) {
 	return false;
 }
 
+bool areEqual(TriIntType a, TriIntType b) {
+	if (a.objId == b.objId
+		&& a.dist == b.dist
+		&& areEqual(a.intPt, b.intPt)
+		&& areEqual(a.bcc, b.bcc)) return true;
+	return false;
+}
+
 // returns a scaled color
 ColorType scaleColor(ColorType color, float scale) {
 	float red = scale*color.red, green = scale*color.green, blue = scale*color.blue;
@@ -364,8 +372,8 @@ float getPlaneIntersectionDistance(RayType ray, FaceType face) {
 }*/
 
 // to
-PointType getBarycentricCoord(RayType ray, FaceType face, float dist) {
-	PointType p = getPoint(ray, dist);// intersection point wrt plane
+PointType getBarycentricCoord(PointType p, FaceType face) {
+	// intersection point wrt plane
     //displayPoint(p);
     PointType p0 = face.v1, p1 = face.v2, p2 = face.v3;
     VectorType e1 = getVector(p0, p1), e2 = getVector(p0, p2),
@@ -387,12 +395,11 @@ PointType getBarycentricCoord(RayType ray, FaceType face, float dist) {
 
 
 // returns the shade of a particular ray
-ColorType shadeRay(int objType, Image& im, int objId, RayType ray, float dist) {
+ColorType shadeRay(int objType, Image& im, int objId, PointType intPt, PointType bcc) {
 	// initialize 
 	ColorType amb, odlam, oslam,  
 			  diff = {0.0, 0.0, 0.0}, spec = {0.0, 0.0, 0.0};	
-	float kd = 0, ks = 0, n = 0; 
-    PointType intPt = getPoint(ray, dist);
+	float kd = 0, ks = 0, n = 0;
     VectorType surfNorm;
 
 	if (objType == 1) { // handle everything as a face 
@@ -410,10 +417,9 @@ ColorType shadeRay(int objType, Image& im, int objId, RayType ray, float dist) {
     	amb = scaleColor(sphere.m.alb, sphere.m.ka);
 		odlam = sphere.m.alb; oslam = sphere.m.spec;
 	 	PointType center = {sphere.x, sphere.y, sphere.z}; 
-		VectorType surfNorm = getVector(center, intPt), zero = {0.0, 0.0, 0.0}; 
+		VectorType surfNorm = getVector(center, intPt); 
 	}
-
-    displayColor(amb);
+    //displayColor(amb);
 
     surfNorm = getUnitVector(surfNorm);
 	VectorType L;
@@ -434,6 +440,7 @@ ColorType shadeRay(int objType, Image& im, int objId, RayType ray, float dist) {
 		float mag = getMagnitude(L);
     	L = getUnitVector(L);
 		float ln = getDotProduct(L, surfNorm);
+		//cout << "ln:" << ln << endl;
 		ln = ln < 0.0 ? 0.0:ln;
 		ColorType lightDiff = scaleColor(odlam, ln*kd);
 		lightDiff = dotProduct(lightDiff, light.c); // multiplying intensities
@@ -442,11 +449,15 @@ ColorType shadeRay(int objType, Image& im, int objId, RayType ray, float dist) {
 		VectorType H = sum(V, L);
     	H = getUnitVector(H);	
 		float nh = getDotProduct(H, surfNorm);
+		//cout << "nh:" << nh << endl;
 		nh = nh < 0.0 ? 0.0:nh;
 		nh = pow(nh, n); 
 		ColorType lightSpec = scaleColor(oslam, nh*ks);
 		lightSpec = dotProduct(lightSpec, light.c); // multiplying intensities
-
+		//cout << "before" << endl;
+	    //displayColor(lightDiff);
+		//displayColor(lightSpec);
+		//cout << "after" << endl;
 		// to calculate the shadow component
 		for (int t=0; t<SHADOWTESTCOUNT; t++) {
             float j_x = static_cast<float>(rand())/static_cast<float>(RAND_MAX);
@@ -510,9 +521,10 @@ pair<float, int> getSphereIntersection(RayType ray, Image& im) {
 	return make_pair(minDist, objId);
 }
 
-pair<float, int> getFaceIntersection(RayType ray, Image& im) {
+TriIntType getFaceIntersection(RayType ray, Image& im) {
 	float minDist = FLT_MAX;
 	int objId = 0;
+	if (im.faces.size() == 1) return DI;
 	for (int i=1; i<im.faces.size(); i++) {
 		float dist = getPlaneIntersectionDistance(ray, im.faces[i]); 
 		if (dist == FLT_MAX) continue;
@@ -521,7 +533,14 @@ pair<float, int> getFaceIntersection(RayType ray, Image& im) {
 			objId = i;
 		}
 	}
-	return make_pair(minDist, objId);
+    // return the closeset valid triangle 
+	if (minDist != FLT_MAX) {
+		PointType pt = getPoint(ray, minDist);
+		PointType bcc = getBarycentricCoord(pt, im.faces[objId]);
+		if (areEqual(bcc, PD)) return DI;
+		return {objId, minDist, pt, bcc};
+	}
+	return DI;
 }
 
 /*
@@ -541,30 +560,23 @@ ColorType traceRay(RayType ray, Image& im) {
 	float minDist = FLT_MAX;
 	int objType = 0;
     
-	// checking for sphere
-    pair<float, int> result = getSphereIntersection(ray, im);	
-	minDist = result.first; objId = result.second;
+    // checking for triangle
+    TriIntType triInt = getFaceIntersection(ray, im);
 
-	// checking for plane
-    result = getFaceIntersection(ray, im);
-	if (result.first > minDist) {// intersection on sphere
-	//	cout << "hello" << endl;
- 	    return shadeRay(0, im, objId, ray, minDist);
-	} else {// intersection on triangle
-		minDist = result.first; objId = result.second;
-	    if (minDist == FLT_MAX) return im.backgroundColor; // no intersection
-		PointType bcc = getBarycentricCoord(ray, im.faces[objId], minDist);
-		// bcc = dummy point when baryCentric coordinates are not valid
-		// false intersection, try for sphere again
-		// intersects with plane but not triangle
-		if (areEqual(bcc, PD)) {			
-			result = getSphereIntersection(ray, im);
-			minDist = result.first; objId = result.second;
-			return minDist != FLT_MAX 
-				? shadeRay(0, im, objId, ray, minDist) : im.backgroundColor;
-		}
-		return shadeRay(1, im, objId, ray, minDist); 
-	}
+    if (areEqual(triInt, DI)) {
+    	pair<float, int> result = getSphereIntersection(ray, im);
+		if (result.first == FLT_MAX) return im.backgroundColor;
+		PointType pt = getPoint(ray, result.first);
+		return shadeRay(0, im, result.second, pt, PD);
+    } else {
+    	pair<float, int> result = getSphereIntersection(ray, im);
+    	if (result.first < triInt.dist) {
+    		PointType pt = getPoint(ray, result.first);
+    		return shadeRay(0, im, result.second, pt, PD);
+    	} else {
+    		return shadeRay(1, im, triInt.objId, triInt.intPt, triInt.bcc);
+    	}
+    }
 	return im.backgroundColor;
 }
 

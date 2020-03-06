@@ -18,7 +18,10 @@
 #define EPI 0.061
 
 // dummy point
-#define PD {FLT_MAX, FLT_MAX, FLT_MAX}
+#define PD {(float)FLT_MAX, (float)FLT_MAX, (float)FLT_MAX}
+
+// dummy intersection
+#define DI {INT_MAX, (float)FLT_MAX, PD, PD}
 
 // struct to store color at a point in the image plane
 struct ColorType {
@@ -45,6 +48,18 @@ struct RayType {
 	float dx, dy, dz;
 };
 
+// struct to store information about a point
+struct PointType {
+	float x, y, z;
+};
+
+// struct to store intersection information
+struct TriIntType {
+	int objId;
+	float dist;
+	PointType intPt, bcc;
+};
+
 struct LightType {
 	// the point or direction
 	float x, y, z;
@@ -64,11 +79,6 @@ struct SphereType {
 	float r;
 	// for now the shere is of solid color
 	MaterialType m;
-};
-
-// struct to store information about a point
-struct PointType {
-	float x, y, z;
 };
 
 // struct to store information about a texture 
