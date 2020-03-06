@@ -433,7 +433,13 @@ ColorType shadeRay(int objType, Image& im, int objId, PointType intPt, PointType
 		odlam = face.m.alb; oslam = face.m.spec;
 		PointType p0 = face.v1, p1 = face.v2, p2 = face.v3;	
 		VectorType e1 = getVector(p0, p1), e2 = getVector(p0, p2);
-		surfNorm = getCrossProduct(e1, e2);
+		if (face.type == 2 || face.type == 3) {
+			cout << "right type" << endl;
+			surfNorm = sum(sum(multiplyScalar(face.vn1, bcc.x), multiplyScalar(face.vn2, bcc.y)),
+				multiplyScalar(face.vn3, bcc.z));
+		} else {
+			surfNorm = getCrossProduct(e1, e2);
+		}
 			
 	} else { // handle everything as a sphere
 		SphereType sphere = im.spheres[objId];
@@ -550,8 +556,8 @@ pair<float, int> getSphereIntersection(RayType ray, Image& im) {
 TriIntType getFaceIntersection(RayType ray, Image& im) {
 	float minDist = FLT_MAX;
 	int objId = -1;
-	cout << "printing ray again" << endl;
-	displayRay(ray);
+/*	cout << "printing ray again" << endl;
+	displayRay(ray);*/
 	PointType bcc = PD, intPt;
 	if (im.faces.size() == 1) return DI;
 	for (int i=1; i<im.faces.size(); i++) {
@@ -585,9 +591,9 @@ ColorType traceRay(RayType ray, Image& im) {
     pair<float, int> result = getSphereIntersection(ray, im);
     TriIntType triInt = getFaceIntersection(ray, im);
 	if (result.first < triInt.dist) {
-	     cout << "after:" << result.first << endl;
-	     cout << "afterS:" << result.second << endl;
-	     cout << (result.first == FLT_MAX) << endl;
+	     //cout << "after:" << result.first << endl;
+	     //cout << "afterS:" << result.second << endl;
+	     //cout << (result.first == FLT_MAX) << endl;
 		  PointType pt = getPoint(ray, result.first);
 	      return shadeRay(0, im, result.second, pt, PD);
 	} else {
@@ -1031,7 +1037,7 @@ Image readInput(string fileName) {
 
 				VectorType N1 = image.norms[vn1], N2 = image.norms[vn2], 
 					   N3 = image.norms[vn3]; // norms
-
+				//cout << type << endl;
 				FaceType face = {P1, P2, P3, T1, T2, T3,
 						 N1, N2, N3, material, type};
 
@@ -1050,7 +1056,7 @@ Image readInput(string fileName) {
 	// check if all the parameters are set or throw error
 	// for (const bool& valid : validArgs) if (!valid) throw 0;	
     // return the initialized image parameters
-	//exit(5);
+       //	exit(5);
    	return image;
 }
 
