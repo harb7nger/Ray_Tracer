@@ -417,7 +417,7 @@ ColorType shadeRay(int objType, Image& im, int objId, PointType intPt, PointType
     	amb = scaleColor(sphere.m.alb, sphere.m.ka);
 		odlam = sphere.m.alb; oslam = sphere.m.spec;
 	 	PointType center = {sphere.x, sphere.y, sphere.z}; 
-		VectorType surfNorm = getVector(center, intPt); 
+		surfNorm = getVector(center, intPt); 
 	}
     //displayColor(amb);
 
