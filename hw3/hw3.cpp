@@ -455,6 +455,20 @@ ColorType shadeRay(int objType, Image& im, int objId, PointType intPt, PointType
 		odlam = sphere.m.alb; oslam = sphere.m.spec;
 	 	PointType center = {sphere.x, sphere.y, sphere.z}; 
 		surfNorm = getVector(center, intPt); 
+
+		if (sphere.t != -1) {
+			TextureType& texture = im.textures[sphere.t];
+			VectorType norm = getUnitVector(surfNorm);
+			float vert = acos(norm.dz)/PI;
+			float theta = atan2(norm.dy, norm.dz);
+			theta = theta < 0.0 ? (float) (theta + 2*PI):(float)theta;
+			float hor = theta/(2*PI);
+
+			int i = (int)(vert*(float)(texture.height-1));
+			int j = (int)(hor*(float)(texture.width-1));
+
+			odlam = texture.list[i][j];
+		}
 	}
 	/*displayVector(surfNorm);
     displayColor(amb);*/
