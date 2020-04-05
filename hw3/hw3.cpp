@@ -96,7 +96,7 @@ void displayPoint(PointType a) {
 }
 
 // display texture coordinates
-void displayTextCoor(TextureType t) {
+void displayTextCoor(TexturePoint t) {
 	cout << t.u << "," << t.v << endl;
 }
 
@@ -241,9 +241,16 @@ ColorType getResultant(ColorType a, ColorType b, Image& im) {
 
 // creates a ray given a point and vector
 RayType createRay(PointType p, VectorType a) {
-	VectorType dir = sum(p, negativeOfVector(a));
+	VectorType dir = getUnitVector(a);
+	RayType res = {p.x, p.y, p.z, dir.dx, dir.dy, dir.dz};
+	return res;
+}
+
+// creates a ray given a point and vector
+RayType createRay(PointType p, PointType a) {
+	VectorType dir = getVector(p, a);
 	dir = getUnitVector(dir);
-	RayType res = {p.x, p.y, p.z, -dir.dx, -dir.dy, -dir.dz};
+	RayType res = {p.x, p.y, p.z, dir.dx, dir.dy, dir.dz};
 	return res;
 }
 
@@ -290,9 +297,10 @@ vector<vector<RayType>> getRays(Image im) {
 
 	for (int i=0; i<h; i++) {
 		for (int j=0; j<w; j++) {
-			VectorType v = sum(delCenter, sum(multiplyScalar(delV, i),
-			                    multiplyScalar(delH, j)));
-			RayType	ray = createRay(im.eye, v);
+			VectorType v = sum(delCenter, 
+				sum(multiplyScalar(delV, i),multiplyScalar(delH, j)));
+			PointType pt = {v.dx, v.dy, v.dz};
+			RayType	ray = createRay(im.eye, pt);
 			res[i].push_back(ray);
 		}
 	}
@@ -303,13 +311,8 @@ vector<vector<RayType>> getRays(Image im) {
 // to get intersection distance for each ray and sphere pair
 float getSphereIntersectionDistance(RayType	ray, SphereType sphere) {
 	float A = 1.0;
-	float B = 2.0*(ray.dx*(ray.x-sphere.x) + ray.dy*(ray.y-sphere.y)
-			+ ray.dz*(ray.z-sphere.z));
-	float C = (ray.x-sphere.x)*(ray.x-sphere.x) 
-			+ (ray.y-sphere.y)*(ray.y-sphere.y)
-
-	    	+ (ray.z-sphere.z)*(ray.z-sphere.z) 
-	        - sphere.r*sphere.r;
+	float B = 2.0*(ray.dx*(ray.x-sphere.x) + ray.dy*(ray.y-sphere.y) + ray.dz*(ray.z-sphere.z));
+	float C = (ray.x-sphere.x)*(ray.x-sphere.x) + (ray.y-sphere.y)*(ray.y-sphere.y) + (ray.z-sphere.z)*(ray.z-sphere.z) - sphere.r*sphere.r;
 
 	float modulo = B*B - 4.0*A*C;
 	if (modulo<0.0) return FLT_MAX;
@@ -344,34 +347,7 @@ float getPlaneIntersectionDistance(RayType ray, FaceType face) {
 	return t<0.0? FLT_MAX:t; // if t is neg implies the point is behind the ray orig
 }
 
-// to check whether a point lies within a triange face or not
-/*PointType getBarycentricCoord(RayType ray, FaceType face, float dist) {
-	PointType p = getPoint(ray, dist);// intersection point wrt plane
-	displayPoint(p);
-	PointType p0 = face.v1, p1 = face.v2, p2 = face.v3;
-	displayPoint(p0);
-	displayPoint(p1);
-	displayPoint(p2);
-	VectorType e1 = getVector(p0, p1), e2 = getVector(p0, p2), ep = getVector(p0, p);
-    float d11 = getDotProduct(e1, e1), d12 = getDotProduct(e1, e2),
-		  d22 = getDotProduct(e2, e2), dp1 = getDotProduct(ep, e1), 
-		  dp2 = getDotProduct(ep, e2);
-
-	float D = d11*d22 - d12*d12,
-		  Dbeta = d22*dp1 - d12*dp2,
-		  Dgamma = d11*dp2 - d12*dp1;
-    
-	float beta = Dbeta/D, 
-		  gamma = Dgamma/D,
-		  alpha = beta+gamma-1;
-	cout << "alpha" << alpha << "beta" << beta << "gamma" << gamma << endl;
-	if (alpha < 0 || alpha > 1 // to check if bcc are valid
-		|| beta < 0 || beta > 1
-		|| gamma < 0 || gamma > 1) return PD;
-	return {alpha, beta, gamma};
-}*/
-
-// to
+// to get barycentri coordinates
 PointType getBarycentricCoord(PointType p, FaceType face) {
 	// intersection point wrt plane
     //displayPoint(p);
@@ -387,12 +363,34 @@ PointType getBarycentricCoord(PointType p, FaceType face) {
 			
     // cout << "alpha" << alpha << "beta" << beta << "gamma" << gamma << endl;
 
-    if (alpha < 0 || alpha > 1 // to check if bcc are valid
-        || beta < 0 || beta > 1
-        || gamma < 0 || gamma > 1) return PD;
+    if (alpha < 0.0 || alpha > 1.0 // to check if bcc are valid
+        || beta < 0.0 || beta > 1.0
+        || gamma < 0.0 || gamma > 1.0 || (alpha+beta+gamma) != 1.0) return PD;
     return {alpha, beta, gamma};
 }
 
+
+TriIntType getFaceIntersection(RayType ray, Image& im) {
+	float minDist = FLT_MAX;
+	int objId = -1;
+/*	cout << "printing ray again" << endl;
+	displayRay(ray);*/
+	PointType bcc = PD, intPt;
+	if (im.faces.size() == 1) return DI;
+	for (int i=1; i<im.faces.size(); i++) {
+		float dist = getPlaneIntersectionDistance(ray, im.faces[i]); 
+		if (dist == FLT_MAX) continue;
+		PointType pt = getPoint(ray, dist);
+		PointType b = getBarycentricCoord(pt, im.faces[i]);
+		if (minDist > dist && !areEqual(b, PD)) {
+			minDist = dist;
+			objId = i;
+			bcc = b;
+			intPt = pt;
+		}
+	}
+	return {objId, minDist, intPt, bcc};
+}
 
 // returns the shade of a particular ray
 ColorType shadeRay(int objType, Image& im, int objId, PointType intPt, PointType bcc) {
@@ -409,7 +407,24 @@ ColorType shadeRay(int objType, Image& im, int objId, PointType intPt, PointType
 		odlam = face.m.alb; oslam = face.m.spec;
 		PointType p0 = face.v1, p1 = face.v2, p2 = face.v3;	
 		VectorType e1 = getVector(p0, p1), e2 = getVector(p0, p2);
-		surfNorm = getCrossProduct(e1, e2);
+		if (face.type == 2 || face.type == 3) {
+			surfNorm = sum(sum(multiplyScalar(face.vn1, bcc.x), multiplyScalar(face.vn2, bcc.y)),
+				multiplyScalar(face.vn3, bcc.z));
+		} else {
+			surfNorm = getCrossProduct(e1, e2);
+		}
+
+		if (face.t != -1) {
+			// cout << "BANNER" << endl;
+			TextureType& texture =  im.textures[face.t];
+			float hor = bcc.x*face.vt1.u + bcc.y*face.vt2.u + bcc.z*face.vt3.u;
+			float vert = bcc.x*face.vt1.v + bcc.y*face.vt2.v + bcc.z*face.vt3.v;
+
+			int i = (int)(vert*(float)(texture.height-1));
+			int j = (int)(hor*(float)(texture.width-1));
+
+			odlam = texture.list[i][j];
+		}
 			
 	} else { // handle everything as a sphere
 		SphereType sphere = im.spheres[objId];
@@ -418,8 +433,23 @@ ColorType shadeRay(int objType, Image& im, int objId, PointType intPt, PointType
 		odlam = sphere.m.alb; oslam = sphere.m.spec;
 	 	PointType center = {sphere.x, sphere.y, sphere.z}; 
 		surfNorm = getVector(center, intPt); 
+
+		if (sphere.t != -1) {
+			TextureType& texture = im.textures[sphere.t];
+			VectorType norm = getUnitVector(surfNorm);
+			float vert = acos(norm.dz)/PI;
+			float theta = atan2(norm.dy, norm.dz);
+			theta = theta < 0.0 ? (float) (theta + 2*PI):(float)theta;
+			float hor = theta/(2*PI);
+
+			int i = (int)(vert*(float)(texture.height-1));
+			int j = (int)(hor*(float)(texture.width-1));
+
+			odlam = texture.list[i][j];
+		}
 	}
-    //displayColor(amb);
+	/*displayVector(surfNorm);
+    displayColor(amb);*/
 
     surfNorm = getUnitVector(surfNorm);
 	VectorType L;
@@ -465,18 +495,22 @@ ColorType shadeRay(int objType, Image& im, int objId, PointType intPt, PointType
 			float j_z = static_cast<float>(rand())/static_cast<float>(RAND_MAX);
 			j_x = j_x*JITTER; j_y = j_y*JITTER; j_z = j_z*JITTER;
 			//displayPoint({j_x, j_y, j_z});
-    
-		   RayType ray = createRay(intPt, {light.x+j_x, light.y+j_y, light.z+j_z});
+    	   PointType endPt = {light.x+j_x, light.y+j_y, light.z+j_z};
+		   RayType ray = createRay(intPt, endPt);
 		   if (!light.pointLight) { // if the light is directional
 		       ray = getRay(intPt, L);
 		   }
+
 		   float minDist = FLT_MAX;
 		   for (int i=0; i<im.spheres.size(); i++) { // check for intersection with all spheres
-		   		if (i == objId) continue; // not to check for sphere where the intersection lies on
+		   		if (i == objId && objType == 0) continue; // not to check for sphere where the intersection lies on
 		   		float dist = getSphereIntersectionDistance(ray, im.spheres[i]);
 		   		if (dist == FLT_MAX) continue;	
 		   		if (minDist > dist && dist > EPI) minDist = dist;
 		   }
+		   
+		   TriIntType intr = getFaceIntersection(ray, im);
+		   if (intr.dist < minDist && (objType == 0 || objId != intr.objId)) minDist = intr.dist;
 
 		   if (!light.pointLight && minDist!=FLT_MAX) shadowFlag += 0.0;
 		   else if (light.pointLight && minDist!=FLT_MAX) {
@@ -501,7 +535,6 @@ ColorType shadeRay(int objType, Image& im, int objId, PointType intPt, PointType
 	ColorType res = addColors(diff, amb); res = addColors(res, spec);
 	res = clampColor(res); // clamp intensities to prevent overflow
 	//displayColor(res);
-	//cout << "XXXXXXXXXXXX" << endl;
 	return res;
 }
 
@@ -511,7 +544,9 @@ pair<float, int> getSphereIntersection(RayType ray, Image& im) {
 	for (int i=0; i<im.spheres.size(); i++){
 		float dist = getSphereIntersectionDistance(ray, im.spheres[i]);
 		// there is not intersection, try the next sphere
-		if (dist == FLT_MAX) continue;
+		if (dist == FLT_MAX) {
+			continue;
+		}
 		else if (minDist > dist){
 			minDist = dist;
 			objId = i;
@@ -521,27 +556,6 @@ pair<float, int> getSphereIntersection(RayType ray, Image& im) {
 	return make_pair(minDist, objId);
 }
 
-TriIntType getFaceIntersection(RayType ray, Image& im) {
-	float minDist = FLT_MAX;
-	int objId = 0;
-	if (im.faces.size() == 1) return DI;
-	for (int i=1; i<im.faces.size(); i++) {
-		float dist = getPlaneIntersectionDistance(ray, im.faces[i]); 
-		if (dist == FLT_MAX) continue;
-		else if (minDist > dist) {
-			minDist = dist;
-			objId = i;
-		}
-	}
-    // return the closeset valid triangle 
-	if (minDist != FLT_MAX) {
-		PointType pt = getPoint(ray, minDist);
-		PointType bcc = getBarycentricCoord(pt, im.faces[objId]);
-		if (areEqual(bcc, PD)) return DI;
-		return {objId, minDist, pt, bcc};
-	}
-	return DI;
-}
 
 /*
  * traces a ray through all objects described in the scene
@@ -555,79 +569,24 @@ TriIntType getFaceIntersection(RayType ray, Image& im) {
 	* else shade ray as per the triangle
 */
 ColorType traceRay(RayType ray, Image& im) {	
-	ColorType sphereColor, faceColor;
-    int objId = -1;	
 	float minDist = FLT_MAX;
-	int objType = 0;
-    
-    // checking for triangle
+    pair<float, int> result = getSphereIntersection(ray, im);
+    // cout<<result.first<<endl;
     TriIntType triInt = getFaceIntersection(ray, im);
-
-    if (areEqual(triInt, DI)) {
-    	pair<float, int> result = getSphereIntersection(ray, im);
-		if (result.first == FLT_MAX) return im.backgroundColor;
-		PointType pt = getPoint(ray, result.first);
-		return shadeRay(0, im, result.second, pt, PD);
-    } else {
-    	pair<float, int> result = getSphereIntersection(ray, im);
-    	if (result.first < triInt.dist) {
-    		PointType pt = getPoint(ray, result.first);
-    		return shadeRay(0, im, result.second, pt, PD);
-    	} else {
-    		return shadeRay(1, im, triInt.objId, triInt.intPt, triInt.bcc);
-    	}
-    }
+	if (result.first < triInt.dist) {
+	     //cout << "after:" << result.first << endl;
+	     //cout << "afterS:" << result.second << endl;
+	     //cout << (result.first == FLT_MAX) << endl;
+		  PointType pt = getPoint(ray, result.first);
+	      return shadeRay(0, im, result.second, pt, PD);
+	} else {
+	     //cout << "after:" << triInt.dist << endl;
+	     if (triInt.dist == FLT_MAX) return im.backgroundColor;
+	     //cout << triInt.objId << endl;
+    	return shadeRay(1, im, triInt.objId, triInt.intPt, triInt.bcc);
+	}
 	return im.backgroundColor;
 }
-
-/*// to trace the given ray with all spheres
-ColorType traceRaySphere(RayType ray, Image& im){
-	int objId = -1;
-	float minDist = FLT_MAX;
-	
-	for (int i=0; i<im.spheres.size(); i++){
-		float dist = getSphereIntersectionDistance(ray, im.spheres[i]);
-		// there is not intersection, try the next sphere
-		if (dist == FLT_MAX) continue;
-		else if (minDist > dist){
-			minDist = dist;
-			objId = i;
-			//cout<<"Itersection"<<endl;
-		}
-	}
-	// return background color if there is no intersection
-	return minDist != FLT_MAX ? shadeRaySphere(im, objId, ray, minDist) : im.backgroundColor;
-}
-
-// to trace a given ray with all the faces
-ColorType traceRayFace(RayType ray, Image& im) {
-	int faceId = 0; // since 0 is dummy/invalid
-	float minDist = FLT_MAX;
-
-	for (int i=1; i<im.faces.size(); i++) {
-		float dist = getPlaneIntersectionDistance(ray, im.faces[i]); 
-		if (dist == FLT_MAX) continue;
-		else if (minDist > dist) {
-			minDist = dist;
-			faceId = i;
-		}
-	}
-  
-	if (minDist == FLT_MAX) return im.backgroundColor; // no intersection
-
-	cout << "dist:" << minDist << endl;
-	
-	displayRay(ray);
-
-	PointType bcc = getBarycentricCoord(ray, im.faces[faceId], minDist);
-
-	if (areEqual(bcc, PD)) return im.backgroundColor; 
-	// if the point does not lie in the face/triangle compare with default point
-	
-	cout << "point found in triangle" << endl;
-	return shadeRayFace(im, im.faces[faceId], ray, minDist); 
-}
-*/
 
 // initialize the image plane, all the vectors such as U, V & W
 void initializeImagePlane(Image& im) {
@@ -701,18 +660,97 @@ vector<vector<ColorType>> initilialzieImage(Image im) {
 	return image;
 }
 
+
+// to parse the texture file
+TextureType parseTextureFile(string fileName) {
+	//cout << "parsing" << endl;
+	ifstream file(fileName);
+	if (file.is_open()) {
+		string line;
+		getline(file, line);
+
+		vector<string> headerInfo = tokenizeLine(line, ' ');
+
+		if (!checkInt(headerInfo[1]) || !checkInt(headerInfo[2]) || !checkInt(headerInfo[3])) throw 7;
+
+		int w = stoi(headerInfo[1]), h = stoi(headerInfo[2]), maxClr = stoi(headerInfo[3]);
+
+		int pixel = 0, col = 0, max = w*h;
+
+		vector<ColorType> parsed;
+
+		//cout<<maxClr<<endl;
+
+		float inv = (float)(1.0/maxClr);
+
+		while (pixel < max && getline(file, line)) {
+			vector<string> tks = tokenizeLine(line, ' ');
+			ColorType c;
+			for (int i = 0; i < tks.size(); i++) {
+				switch(col%3) {
+					case 0: {
+						c.red = (float)stoi(tks[i])*inv;
+						col++;
+						break;
+					}
+
+					case 1: {
+						c.green = (float)stoi(tks[i])*inv;
+						col++;
+						break;
+					}
+
+					case 2: {
+						c.blue = (float)stoi(tks[i])*inv;
+						col++;
+						pixel++;
+						break;
+					}
+				}
+			}
+			parsed.push_back(c);
+		}
+
+		file.close();
+
+		vector<vector<ColorType>> result;
+
+		pixel = 0;
+
+		for (int i=0; i<h; i++) {
+			vector<ColorType> temp;
+			for (int j=0; j<w; j++) {
+				temp.push_back(parsed[pixel++]);
+			}
+			result.push_back(temp);
+		}
+
+		TextureType texture;
+		texture.list = result;
+		texture.width = w;
+		texture.height = h;
+
+		return texture;
+	} else {throw 8;}
+	cout << "parsing failed" << endl;
+	file.close();
+	return {}; // return empty object
+}
+
+
 // parses the file and gets the image size
 Image readInput(string fileName) {
 
 	Image image;
 	MaterialType material;
+	int texture = 0;
   	ifstream infile; infile.open(fileName);
 	string LINE;
 	unordered_map<string, int> cases = {
 		{"bkgcolor", 0}, {"eye", 1}, {"hfov", 2}, {"imsize", 3},
 		{"light", 4}, {"mtlcolor", 5}, {"sphere", 6}, {"viewdir", 7},
 		{"updir", 8}, {"attlight", 9},
-		{"v", 10}, {"vn", 11}, {"vt", 12}, {"f", 13}
+		{"v", 10}, {"vn", 11}, {"vt", 12}, {"f", 13}, {"texture", 14}
 	};
 
 	vector<bool> validArgs(14, false);
@@ -844,9 +882,9 @@ Image readInput(string fileName) {
 
 				if (radius<=0 || !validArgs[cases["mtlcolor"]]) throw -1;
 				validArgs[cases["sphere"]] = true;
-
+				int t = texture > 0 ? texture : -1;
 				SphereType sphere = {(float)x, (float)y, (float)z,
-				    (float)radius, material};
+				    (float)radius, material, t};
 				image.spheres.push_back(sphere);
 				// cout << "sphere" << endl;
 				break;
@@ -929,7 +967,7 @@ Image readInput(string fileName) {
 				if (tokens.size()!=3 || !checkFloat(tokens[1])
 					|| !checkFloat(tokens[2])) throw 4;
 				float u = stof(tokens[1]), v = stof(tokens[2]);
-			 	TextureType texturePt = {(float)u, (float)v};
+			 	TexturePoint texturePt = {(float)u, (float)v};
 				image.texts.push_back(texturePt);
 				// cout << "texture" << endl;
 				break;
@@ -1007,19 +1045,29 @@ Image readInput(string fileName) {
 				PointType P1 = image.vertices[v1], P2 = image.vertices[v2],
 					  P3 = image.vertices[v3]; // vertices 
 
-				TextureType T1 = image.texts[vt1], T2 = image.texts[vt2],
+				TexturePoint T1 = image.texts[vt1], T2 = image.texts[vt2],
 				            T3 = image.texts[vt3]; // texture points 
 
 				VectorType N1 = image.norms[vn1], N2 = image.norms[vn2], 
 					   N3 = image.norms[vn3]; // norms
-
+				//cout << type << endl;
+				int t = texture > 0 ? texture : -1;
 				FaceType face = {P1, P2, P3, T1, T2, T3,
-						 N1, N2, N3, material, type};
+						N1, N2, N3, material, type, t};
 
 				//displayFace(face);
 
 				image.faces.push_back(face);				
 				break;
+			}
+
+			case 14: {
+				if (tokens.size()!=2) throw 6;
+				TextureType tex = parseTextureFile(tokens[1]);
+				image.textures.push_back(tex);
+				// cout << "height" << tex.height << "width" << tex.width << endl; 
+				texture++;
+				break;	
 			}
 
     		default: {
@@ -1031,7 +1079,7 @@ Image readInput(string fileName) {
 	// check if all the parameters are set or throw error
 	// for (const bool& valid : validArgs) if (!valid) throw 0;	
     // return the initialized image parameters
-	//exit(5);
+       // exit(5);
    	return image;
 }
 
@@ -1055,9 +1103,9 @@ int main (int argc, char** argv) {
     	initializeViewingWindow(im);
     	vector<vector<RayType>> rays = getRays(im);
 
-		//use the traced ray to get the image
     	for (int i=0; i<im.height; i++) {
     		for (int j=0; j<im.width; j++) {
+			    
 				image[i][j] = traceRay(rays[i][j], im); 
     		}
     	}
@@ -1087,11 +1135,16 @@ int main (int argc, char** argv) {
 			case 5:
 				cout << "Invalid face entry encountered, please check input" << endl;
 				break;
+			case 6:
+				cout << "Texture file parsing failed please check" << endl;
+				break;
+			case 7:
+				cout << "Error occured while parsing header for texture file" << endl;
+				break;
+			case 8:
+				cout << "Error, texture file did not open" << endl;
 		}
     }
 
 	return 0;
 }
-
-
-
