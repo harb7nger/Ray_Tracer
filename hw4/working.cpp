@@ -554,13 +554,19 @@ ColorType shadeRay(int objType, Image& im, int objId, PointType intPt, PointType
 		//displayColor(spec);
 	}
 
+	// assign dummy color by default
 	ColorType refColor = DC; 
 	if (recDepth+1 < MAXRECUR) {
         float frc = getFresnelRC(ray, surfNorm, fo);
-       	RayType reflRay = getReflectedRay(ray, surfNorm, intPt);    
-	    ColorType refColor = traceRay(ray, im, recDepth+1);
-	    //displayColor(refColor);	
-        refColor = scaleColor(refColor, frc);
+       	RayType reflRay = getReflectedRay(ray, surfNorm, intPt);  
+	    refColor = traceRay(reflRay, im, recDepth+1);
+	    // update if reflection is successful
+	    if (!areEqual(DC, refColor)) {
+	    	cout << frc << endl;
+		    displayRay(reflRay);
+		    displayColor(refColor);
+	        refColor = scaleColor(refColor, frc);
+	    }
 	}
 	
     // add up all the diffusion and spec terms for all light sources
@@ -607,20 +613,24 @@ ColorType traceRay(RayType ray, Image& im, int recDepth) {
     // cout<<result.first<<endl;
     TriIntType triInt = getFaceIntersection(ray, im);
 	if (sphereInt.first < triInt.dist) {
-	     //cout << "after:" << result.first << endl;
-	     //cout << "afterS:" << result.second << endl;
-	     //cout << (result.first == FLT_MAX) << endl;
-		  PointType pt = getPoint(ray, sphereInt.first);
-		  if (recDepth > 0) cout << "type" << 0 << "id" << sphereInt.second << endl;
-	      return shadeRay(0, im, sphereInt.second, pt, PD, ray, recDepth);
+	    //cout << "after:" << result.first << endl;
+	    //cout << "afterS:" << result.second << endl;
+	    //cout << (result.first == FLT_MAX) << endl;
+		PointType pt = getPoint(ray, sphereInt.first);
+		// if (recDepth > 0) cout << "type" << 0 << "id" << sphereInt.second << endl;
+	    return shadeRay(0, im, sphereInt.second, pt, PD, ray, recDepth);
 	} else {
 	     //cout << "after:" << triInt.dist << endl;
-	     if (triInt.dist == FLT_MAX) return im.backgroundColor;
-	     //cout << triInt.objId << endl;
-		if (recDepth > 0) cout << "type" << 1 << "id" << triInt.objId << endl;
+	     if (triInt.dist == FLT_MAX) {
+	     	if (recDepth == 0) {return im.backgroundColor;}
+	     	else {return DC;}
+	     } 
+	    //cout << triInt.objId << endl;
+		// if (recDepth > 0) cout << "type" << 1 << "id" << triInt.objId << endl;
     	return shadeRay(1, im, triInt.objId, triInt.intPt, triInt.bcc, ray, recDepth);
 	}
-	return im.backgroundColor;
+	if (recDepth == 0) return im.backgroundColor;
+	else return DC;
 }
 
 // initialize the image plane, all the vectors such as U, V & W
