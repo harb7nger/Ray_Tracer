@@ -1,4 +1,4 @@
-#include "working.h"
+#include "hw4.h"
 #include <algorithm>
 #include <ctype.h>
 #include <cmath>
@@ -550,23 +550,16 @@ ColorType shadeRay(int objType, Image& im, int objId, PointType intPt, PointType
 
 		diff = addColors(diff, scaleColor(lightDiff, atF*shadowFlag)); // add the effect of this light
  		spec = addColors(spec, scaleColor(lightSpec, atF*shadowFlag));// add the effect of this light 
-		//displayColor(diff);
-		//displayColor(spec);
 	}
 
 	// assign dummy color by default
 	ColorType refColor = DC; 
 	if (recDepth+1 < MAXRECUR) {
-        float frc = getFresnelRC(ray, surfNorm, fo);
+        float frc = (float)1.0; 
+        if (USESHLICKSAPPROX) frc = getFresnelRC(ray, surfNorm, fo);
        	RayType reflRay = getReflectedRay(ray, surfNorm, intPt);  
 	    refColor = traceRay(reflRay, im, recDepth+1);
-	    // update if reflection is successful
-	    if (!areEqual(DC, refColor)) {
-	    	cout << frc << endl;
-		    displayRay(reflRay);
-		    displayColor(refColor);
-	        refColor = scaleColor(refColor, frc);
-	    }
+	    refColor = scaleColor(refColor, frc);
 	}
 	
     // add up all the diffusion and spec terms for all light sources
@@ -819,7 +812,7 @@ Image readInput(string fileName) {
 				validArgs[cases["bkgcolor"]] = true;
 				ColorType color = {red, green, blue};
 				image.backgroundColor = color;
-				// cout << "bkgcolor" << endl;
+			    //cout << "bkgcolor" << endl;
 				break;
 			}
 
@@ -834,7 +827,7 @@ Image readInput(string fileName) {
 				PointType eye = {(float)x, (float)y, (float)z};
 				image.eye = eye;
 				validArgs[cases["eye"]] = true;
-				// cout << "eye" << endl;
+				//cout << "eye" << endl;
 				break;
     		}
 
@@ -843,7 +836,7 @@ Image readInput(string fileName) {
 				float angle = stof(tokens[1]);
 				image.hfov = angle;
 				validArgs[cases["hfov"]] = true;
-				// cout << "hfov" << endl;
+				//cout << "hfov" << endl;
 				break;
     		}
 
@@ -855,7 +848,7 @@ Image readInput(string fileName) {
 					
 				image.width	 = width; image.height = height;
 				validArgs[cases["imsize"]] = true;
-				// cout << "imsize" << endl;
+				//cout << "imsize" << endl;
 				break;
     		}
 
@@ -884,7 +877,7 @@ Image readInput(string fileName) {
 					image.lights.push_back(light);
 				}
 				validArgs[cases["light"]] = true;
-				// cout << "lights" << endl;
+				//cout << "lights" << endl;
 				break;
 			}
 
@@ -917,7 +910,7 @@ Image readInput(string fileName) {
 				          oS = {(float)oSr, (float)oSg, (float)oSb};
 				
 				material = {oD, oS, (float)ka, (float)kd, (float)ks, (float)n, alpha, fo};
-				// cout << "mtlcolor" << endl;
+				//cout << "mtlcolor" << endl;
 				break;	
     		}
 
@@ -936,7 +929,7 @@ Image readInput(string fileName) {
 				SphereType sphere = {(float)x, (float)y, (float)z,
 				    (float)radius, material, t};
 				image.spheres.push_back(sphere);
-				// cout << "sphere" << endl;
+				//cout << "sphere" << endl;
 				break;
     		}
 
@@ -950,7 +943,7 @@ Image readInput(string fileName) {
 				VectorType viewdir = {(float)x, (float)y, (float)z};
 				image.viewDirection = viewdir;
 				validArgs[cases["viewdir"]] = true;
-				// cout << "viewdir" << endl;
+				//cout << "viewdir" << endl;
 				break;
     		}
 
@@ -959,14 +952,14 @@ Image readInput(string fileName) {
     			    || !checkFloat(tokens[2])
     			    || !checkFloat(tokens[3])) throw -1;
 
-					float x = stof(tokens[1]), y = stof(tokens[2]),
-					    z = stof(tokens[3]);
+				float x = stof(tokens[1]), y = stof(tokens[2]),
+				    z = stof(tokens[3]);
 
-					VectorType up = {(float)x, (float)y, (float)z};
-					image.upDirection = up;
-					validArgs[cases["updir"]] = true;
-					// cout << "updir" << endl;
-					break;	
+				VectorType up = {(float)x, (float)y, (float)z};
+				image.upDirection = up;
+				validArgs[cases["updir"]] = true;
+				//cout << "updir" << endl;
+				break;	
     		}
 
 			case 9: {
@@ -988,7 +981,7 @@ Image readInput(string fileName) {
 						= {(float)x, (float)y, (float)z, true, true, color, c1, c2, c3};	
 				image.lights.push_back(light);
 				validArgs[cases["light"]] = true;
-				// cout << "lights" << endl;
+			    //cout << "lights" << endl;
 				break;
 			}
 
@@ -999,7 +992,7 @@ Image readInput(string fileName) {
 				float x = stof(tokens[1]), y = stof(tokens[2]), z = stof(tokens[3]);
 				PointType vertex = {(float)x, (float)y, (float)z};
 				image.vertices.push_back(vertex);
-				// cout << "vertex" << endl;
+				//cout << "vertex" << endl;
 				break;
 			}
 
@@ -1009,7 +1002,7 @@ Image readInput(string fileName) {
 				float dx = stof(tokens[1]), dy = stof(tokens[2]), dz = stof(tokens[3]);
 			 	VectorType normal = {(float)dx, (float)dy, (float)dz};
 				image.norms.push_back(normal);
-				// cout << "vertex normal" << endl;
+				//cout << "vertex normal" << endl;
 				break;
 			}
 
@@ -1019,7 +1012,7 @@ Image readInput(string fileName) {
 				float u = stof(tokens[1]), v = stof(tokens[2]);
 			 	TexturePoint texturePt = {(float)u, (float)v};
 				image.texts.push_back(texturePt);
-				// cout << "texture" << endl;
+				//cout << "texture" << endl;
 				break;
 			}
 
@@ -1129,7 +1122,7 @@ Image readInput(string fileName) {
 	// check if all the parameters are set or throw error
 	// for (const bool& valid : validArgs) if (!valid) throw 0;	
     // return the initialized image parameters
-       // exit(5);
+    // exit(5);
    	return image;
 }
 
